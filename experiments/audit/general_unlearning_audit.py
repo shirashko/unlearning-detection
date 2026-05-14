@@ -186,7 +186,7 @@ def parse_args() -> argparse.Namespace:
                    help="Layers to audit (e.g. '10-18'). Default: every layer_* in --snmf-dir.")
     p.add_argument("--mode", type=str, default="mlp_intermediate",
                    choices=["mlp_intermediate"],
-                   help="Activation hook mode. Must match what F was trained on.")
+                   help="Activation hook mode. Must match what F was trained on.") # TODO: So maybe I should make sure we have the information about the mode used in the SNMF in the snmf dir and use it instead of asking the user here for it.
     p.add_argument("--max-prompts", type=int, default=400,
                    help="Cap on audit prompts (0 = use all).")
     p.add_argument("--batch-size", type=int, default=8)
