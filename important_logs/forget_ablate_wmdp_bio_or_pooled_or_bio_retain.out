@@ -1,0 +1,143 @@
+================================================================
+ Running create_forget_ablated_model.py (WMDP-bio)
+ Node: t-100
+ Model path:                   /home/morg/students/rashkovits/Localized-UNDO/models/wmdp/gemma-2-2b
+ Results dir:                  outputs/wmdp/results_data_part1_gemma2_2b
+ Supervised JSON filename:     feature_analysis_supervised_wmdp_bio.json
+ Save path (learned):          local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain
+ Save path (random baseline):  local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain_random_baseline  (if RANDOM_BASELINE=1)
+ Forget roles:                 bio_forget_lean
+ Role label bases (WMDP-bio):  pooled bio_retain (combine=any)
+ Eval mode:                    wmdp_bio
+ Eval tasks:                   lm-eval wmdp_bio (+ MMLU unless EVAL_NO_MMLU=1)
+================================================================
+
+=== Baseline eval (original model, before ablation) ===
+[loss_functions.py] No valid HF token found or huggingface_hub not installed. Skipping HF login.
+[loss_functions.py] No valid wandb token found. Skipping wandb login.
+[validation_functions.py] Setting wmdp_bio few shot to [0]
+[validation_functions.py] Setting mmlu few shot to [5]
+[validation_functions.py] Validation Results:
+[validation_functions.py] 	wmdp_bio_limit_1000_shots_0: 0.563
+[validation_functions.py] 	wmdp_bio time: 700.9799761772156
+[validation_functions.py] 	mmlu_limit_0.07_shots_5: 0.5467059980334317
+[validation_functions.py] 	mmlu time: 226.49675393104553
+[validation_functions.py] 	total time: 931.5409088134766
+Ablation model load device (after resolve): cuda
+Loading model from /home/morg/students/rashkovits/Localized-UNDO/models/wmdp/gemma-2-2b...
+Model loaded: 26 layers, d_model=2304, d_mlp=9216
+Layer 0: removed span of 109 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 1: removed span of 190 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 2: removed span of 125 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 3: removed span of 94 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 4: removed span of 137 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 5: removed span of 92 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 6: removed span of 121 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 7: removed span of 134 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 8: removed span of 152 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 9: removed span of 49 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 10: removed span of 52 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 11: removed span of 35 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 12: removed span of 35 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 13: removed span of 39 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 14: removed span of 31 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 15: removed span of 64 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 16: removed span of 86 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 17: removed span of 89 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 18: removed span of 137 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 19: removed span of 147 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 20: removed span of 107 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 21: removed span of 69 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 22: removed span of 138 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 23: removed span of 108 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 24: removed span of 117 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 25: removed span of 83 forget SNMF column(s) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Saved edited model and tokenizer to local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain
+Wrote metadata to local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain/forget_ablation_metadata.json
+
+=== Post-ablation eval (saved checkpoint) ===
+[loss_functions.py] No valid HF token found or huggingface_hub not installed. Skipping HF login.
+[loss_functions.py] No valid wandb token found. Skipping wandb login.
+[validation_functions.py] Setting wmdp_bio few shot to [0]
+[validation_functions.py] Setting mmlu few shot to [5]
+[validation_functions.py] Validation Results:
+[validation_functions.py] 	wmdp_bio_limit_1000_shots_0: 0.245
+[validation_functions.py] 	wmdp_bio time: 38.75799083709717
+[validation_functions.py] 	mmlu_limit_0.07_shots_5: 0.26745329400196655
+[validation_functions.py] 	mmlu time: 114.07581520080566
+[validation_functions.py] 	total time: 155.54127311706543
+
+=== Evaluation comparison (evaluation/eveluate_model.py) ===
+  mmlu time: before=226.496754  after=114.075815  delta=-112.420939
+  mmlu_limit_0.07_shots_5: before=0.546706  after=0.267453  delta=-0.279253
+  total time: before=931.540909  after=155.541273  delta=-775.999636
+  wmdp_bio time: before=700.979976  after=38.757991  delta=-662.221985
+  wmdp_bio_limit_1000_shots_0: before=0.563000  after=0.245000  delta=-0.318000
+Wrote eval comparison JSON to local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain/ablation_eval_comparison.json
+
+=== Random baseline ablation (matched direction count) ===
+Loading model from /home/morg/students/rashkovits/Localized-UNDO/models/wmdp/gemma-2-2b...
+Model loaded: 26 layers, d_model=2304, d_mlp=9216
+Layer 0: removed span of 109 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 1: removed span of 190 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 2: removed span of 125 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 3: removed span of 94 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 4: removed span of 137 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 5: removed span of 92 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 6: removed span of 121 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 7: removed span of 134 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 8: removed span of 152 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 9: removed span of 49 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 10: removed span of 52 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 11: removed span of 35 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 12: removed span of 35 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 13: removed span of 39 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 14: removed span of 31 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 15: removed span of 64 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 16: removed span of 86 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 17: removed span of 89 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 18: removed span of 137 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 19: removed span of 147 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 20: removed span of 107 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 21: removed span of 69 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 22: removed span of 138 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 23: removed span of 108 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 24: removed span of 117 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Layer 25: removed span of 83 RANDOM direction(s) (matched to forget count) with span_projection_scale=1.0 via P_perp @ W_gate/up + W_down @ P_perp.
+Saved random-baseline model and tokenizer to local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain_random_baseline
+
+=== Post-random-baseline eval (saved checkpoint) ===
+[loss_functions.py] No valid HF token found or huggingface_hub not installed. Skipping HF login.
+[loss_functions.py] No valid wandb token found. Skipping wandb login.
+[validation_functions.py] Setting wmdp_bio few shot to [0]
+[validation_functions.py] Setting mmlu few shot to [5]
+[validation_functions.py] Validation Results:
+[validation_functions.py] 	wmdp_bio_limit_1000_shots_0: 0.553
+[validation_functions.py] 	wmdp_bio time: 61.000235080718994
+[validation_functions.py] 	mmlu_limit_0.07_shots_5: 0.5319567354965585
+[validation_functions.py] 	mmlu time: 113.89937281608582
+[validation_functions.py] 	total time: 177.1920657157898
+
+--- Learned-direction ablation vs random baseline ---
+
+=== Evaluation comparison (evaluation/eveluate_model.py) ===
+  mmlu time: before=114.075815  after=113.899373  delta=-0.176442
+  mmlu_limit_0.07_shots_5: before=0.267453  after=0.531957  delta=+0.264503
+  total time: before=155.541273  after=177.192066  delta=+21.650793
+  wmdp_bio time: before=38.757991  after=61.000235  delta=+22.242244
+  wmdp_bio_limit_1000_shots_0: before=0.245000  after=0.553000  delta=+0.308000
+
+--- Original baseline vs random baseline ---
+
+=== Evaluation comparison (evaluation/eveluate_model.py) ===
+  mmlu time: before=226.496754  after=113.899373  delta=-112.597381
+  mmlu_limit_0.07_shots_5: before=0.546706  after=0.531957  delta=-0.014749
+  total time: before=931.540909  after=177.192066  delta=-754.348843
+  wmdp_bio time: before=700.979976  after=61.000235  delta=-639.979741
+  wmdp_bio_limit_1000_shots_0: before=0.563000  after=0.553000  delta=-0.010000
+Updated eval comparison JSON with random baseline at local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain/ablation_eval_comparison.json
+================================================================
+ Done.
+ Learned checkpoint: local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain
+ Eval JSON:          local_models/wmdp/gemma-2-2b_wmdp_bio_forget_ablated_pooled_or_bio_retain/ablation_eval_comparison.json
+================================================================

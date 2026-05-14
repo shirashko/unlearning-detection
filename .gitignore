@@ -1,0 +1,55 @@
+# Bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment & secrets
+.env
+.env.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Experiment outputs (scripts write JSON, .pkl factorizations, etc. here)
+outputs/
+experiments/artifacts/
+experiments/snmf-*.out
+experiments/snmf-*.err
+rebuttal/
+
+# Logs (training job stdout/stderr, training_summary.log, etc.)
+logs/
+*.log
+
+# Local / downloaded model weights (HF checkpoints, etc.)
+local_models/
+
+# Hugging Face & common ML caches
+.cache/
+cache/
+huggingface/
+
+# Pip temp dirs when TMPDIR/cwd pointed at repo (build/unpack leftovers)
+/pip-*/
+
+# OS & editors
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+*~
