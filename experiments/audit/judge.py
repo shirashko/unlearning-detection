@@ -104,7 +104,9 @@ class GeminiAuditJudge:
             
             if ctxs := rec.get("top_contexts"):
                 for j, ctx in enumerate(ctxs, start=1):
-                    parts.append(f"    {j:>2}. act={ctx['activation']:.3f}  sample={ctx['sample_id']}  | {ctx['context']}")
+                    parts.append(
+                        f"    {j:>2}. act={ctx['activation']:.3f}  | {ctx['context']}"
+                    )
             else:
                 parts.append("    (no contexts recorded)")
                 
