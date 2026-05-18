@@ -5,6 +5,7 @@ import numpy as np
 import torch
 
 from experiments.audit.context_windows import _marked_context_text
+from experiments.audit.special_tokens import RARE_WORD_SPECIAL_TOKEN_DENYLIST
 
 try:
     from wordfreq import zipf_frequency as _zipf_frequency  # type: ignore
@@ -39,7 +40,9 @@ def rare_word_ranking_from_contexts(
     ``wordfreq.zipf_frequency``, range ~0.0=never-seen to ~8.0=THE most
     common word). Words with Zipf >= ``zipf_cutoff`` (common English: ``the``,
     ``of``, ``and``, ...) are dropped, so what remains is topical
-    vocabulary. The remaining words are scored by
+    vocabulary. Tokens matching a small denylist of model specials (e.g.
+    ``unk``, ``bos``, ``eos`` as extracted from decoded ``<unk>``-style
+    strings) are dropped before counting. The remaining words are scored by
 
         score = count_in_contexts * max(zipf_cutoff - zipf, 0.5)
 
@@ -61,7 +64,7 @@ def rare_word_ranking_from_contexts(
             continue
         clean = strip_emphasis_markers(ctx).lower()
         for tok in _CONTEXT_WORD_RE.findall(clean):
-            if len(tok) < min_word_len:
+            if len(tok) < min_word_len or tok in RARE_WORD_SPECIAL_TOKEN_DENYLIST:
                 continue
             counts[tok] = counts.get(tok, 0) + 1
     if not counts:
