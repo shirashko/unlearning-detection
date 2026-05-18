@@ -92,7 +92,7 @@ def _load_peft_adapter_merged(model_path: str, device: str) -> LocalModel:
     model.eval().to(device)
 
     tokenizer = AutoTokenizer.from_pretrained(
-        adapter_root,
+        base_path,
         trust_remote_code=True,
     )
     if tokenizer.pad_token_id is None:
