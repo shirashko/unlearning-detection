@@ -650,8 +650,11 @@ def _invoke_gemini_audit_judge(
 
     logger.info(f"Calling judge model: {gemini_judge.model}")
 
-    raw_text, judge_error = gemini_judge.call_gemini(judge_prompt)
+    raw_text, judge_error, finish_reason = gemini_judge.call_gemini(judge_prompt)
     (out_dir / "judge_response_raw.txt").write_text(raw_text or "", encoding="utf-8")
+    if finish_reason:
+        lvl = logger.warning if finish_reason == "MAX_TOKENS" else logger.info
+        lvl("Judge finished with reason: %s", finish_reason)
     if judge_error:
         logger.warning(f"Judge call failed: {judge_error}")
     elif not raw_text:
