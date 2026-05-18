@@ -1,16 +1,3 @@
-"""Logit-lens snapshot of a base model for SNMF-feature interpretation.
-
-A feature direction ``f`` in MLP-intermediate space (``d_mlp``) contributes
-``r = W_down @ f`` (``d_model``) to the residual stream at a layer's output.
-The logit-lens then projects ``r`` to vocab via
-``logits = lm_head( final_norm(r) )``. We snapshot the relevant HF modules /
-weights so the original base model can be discarded right after activation
-collection without losing the ability to do this projection.
-
-Used by both ``experiments/audit/general_unlearning_audit.py`` and
-``experiments/audit/unlearning_audit.py``.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -20,25 +7,18 @@ import torch
 
 
 class LogitLens:
-    """CPU snapshot of the components needed to logit-lens an SNMF feature.
+    """Logit-Lens utility for interpreting decoupled sub-network latents (e.g., sNMF/SAE features).
 
-    Two anti-noise knobs (both on by default; toggle from the CLI):
+    Mathematical Pipeline:
+        1. Residual Contribution:  r = W_down @ f
+        2. Vocabulary Projection:  logits = LM_head( LN_final(r) )
 
-    * **center_unembed** -- subtract the mean unembedding row from ``E`` before
-      projection (``E_c = E - E.mean(0)``). Cheap fix for the well-known
-      anisotropy of token embeddings: without it, almost every residual
-      direction appears to "promote" the same cluster of rare-frequency
-      tokens, because their embeddings all point in a shared high-norm
-      direction. See Mu & Viswanath, "All-but-the-Top" (ICLR 2018).
-    * **mask_special_tokens** -- set logits for special / unused / reserved
-      tokens to ``-inf`` before topk. ``<bos>``, ``<eos>``, ``<pad>``,
-      ``<start_of_turn>``, Gemma's ``<unused...>`` slots, etc. tend to have
-      unusually large unembedding norms and dominate the topk on essentially
-      arbitrary directions.
-
-    Memory: ``lm_head`` is the dominant cost (vocab x d_model). For Gemma-2-2b
-    that's ~2.4 GB fp32, manageable on CPU; we move to ``device`` only while
-    projecting.
+    Anti-Noise Mechanisms:
+        * center_unembed (Default: True): Subtracts the mean token embedding row from the unembedding matrix. 
+          Mitigates representation anisotropy (token embedding degeneration), suppressing generic, 
+          high-norm rare tokens that mask true semantic vectors. See Mu & Viswanath (ICLR 2018).
+        * mask_special_tokens (Default: True): Sets logits of control/structural tokens (<bos>, <eos>, 
+          Gemma turn tags) to -inf. Prevents outlier unembedding weights from dominating top-k indices.
     """
 
     _SPECIAL_TOKEN_PATTERNS: Tuple[str, ...] = (
@@ -58,6 +38,7 @@ class LogitLens:
         center_unembed: bool = True,
         mask_special_tokens: bool = True,
     ) -> None:
+        # Independent copies on CPU so the original model can be freed.
         self.final_norm = copy.deepcopy(base_model.model.norm).cpu().eval()
         self.lm_head = copy.deepcopy(base_model.lm_head).cpu().eval()
         for p in self.final_norm.parameters():
@@ -74,7 +55,7 @@ class LogitLens:
         self.down_proj: Dict[int, torch.Tensor] = {}
         for layer_idx in layers:
             w = base_model.model.layers[int(layer_idx)].mlp.down_proj.weight
-            self.down_proj[int(layer_idx)] = w.detach().cpu().clone()
+            self.down_proj[int(layer_idx)] = w.detach().cpu().clone() # (d_model, d_mlp).
 
         self.special_token_ids: List[int] = []
         if mask_special_tokens and tokenizer is not None:
@@ -84,6 +65,7 @@ class LogitLens:
     @classmethod
     def _collect_special_token_ids(cls, tokenizer: Any) -> List[int]:
         ids: set = set()
+        # Whatever the tokenizer itself marks as special.
         for tid in getattr(tokenizer, "all_special_ids", []) or []:
             if isinstance(tid, int) and tid >= 0:
                 ids.add(int(tid))
@@ -113,7 +95,12 @@ class LogitLens:
         top_k: int,
         tokenizer: Any,
     ) -> List[Dict[str, Any]]:
-        """Logit-lens an arbitrary residual direction ``r`` of shape ``(d_model,)``."""
+        """Logit-lens an arbitrary residual-stream direction ``r`` (shape ``(d_model,)``).
+
+        Applies ``final_norm`` + (possibly centered) ``lm_head`` + special-token mask,
+        same path as ``project_latents``, returning top-k
+        ``{token_id, token, logit}`` entries.
+        """
         if r.ndim != 1:
             raise ValueError(f"r must be 1D, got shape {tuple(r.shape)}")
         if top_k <= 0:
@@ -172,40 +159,52 @@ class LogitLens:
         top_k: int,
         tokenizer: Any,
     ) -> Dict[int, List[Dict[str, Any]]]:
-        """Logit-lens each latent in ``F`` (shape ``(d_mlp, K)``) at ``layer``.
+        """Operate on ``F`` (shape ``(d_mlp, K)``) at ``layer`` across a vectorized batch.
 
         Returns a dict mapping latent index -> list of ``{token_id, token,
         logit}`` dicts of length up to ``top_k``.
         """
         if top_k <= 0 or not latent_indices:
             return {}
+            
         device = self._device
         W_down = self.down_proj[int(layer)].to(device)        # (d_model, d_mlp)
-        F_dev = F.to(device=device, dtype=W_down.dtype)        # (d_mlp, K)
-
-        mask_ids: Optional[torch.Tensor] = None
+        idx = list(int(i) for i in latent_indices)
+        
+        # Extract all requested latent columns simultaneously
+        f_batch = F[:, idx].to(device=device, dtype=W_down.dtype) # (d_mlp, num_latents)
+        
+        # Project all to residual stream -> shape: (num_latents, d_model)
+        r_batch = (W_down @ f_batch).T                         
+        
+        # Explicitly structure as (Batch=1, Seq=num_latents, Hidden=d_model)
+        # This guarantees LayerNorm/RMSNorm processes the hidden dimension exactly as it does in forward passes.
+        r_batch_structured = r_batch.unsqueeze(0)              # (1, num_latents, d_model)
+        normed = self.final_norm(r_batch_structured).squeeze(0) # (num_latents, d_model)
+        
+        # Project to vocabulary logits
+        logits_batch = self.lm_head(normed)                    # (num_latents, vocab)
+        
+        # Batched index fill for special tokens
         if self.special_token_ids:
-            mask_ids = torch.tensor(self.special_token_ids,
-                                    device=device, dtype=torch.long)
-
+            mask_ids = torch.tensor(self.special_token_ids, device=device, dtype=torch.long)
+            logits_batch.index_fill_(1, mask_ids, float("-inf"))
+            
+        # Batched top-k
+        top_vals, top_ids = torch.topk(logits_batch, top_k, dim=1)
+        
+        # Move everything to CPU at once
+        top_ids_cpu = top_ids.cpu().tolist()
+        top_vals_cpu = top_vals.cpu().tolist()
+        
         out: Dict[int, List[Dict[str, Any]]] = {}
-        for li in latent_indices:
-            li_int = int(li)
-            f = F_dev[:, li_int]                               # (d_mlp,)
-            r = W_down @ f                                      # (d_model,)
-            normed = self.final_norm(r.unsqueeze(0))            # (1, d_model)
-            logits = self.lm_head(normed).squeeze(0)            # (vocab,)
-            if mask_ids is not None:
-                logits.index_fill_(0, mask_ids, float("-inf"))
-            top_vals, top_ids = torch.topk(logits, top_k)
-            ids = top_ids.detach().cpu().tolist()
-            vals = top_vals.detach().cpu().tolist()
+        for b_idx, li_int in enumerate(idx):
             out[li_int] = [
                 {
                     "token_id": int(tid),
                     "token": tokenizer.decode([int(tid)]),
                     "logit": float(v),
                 }
-                for tid, v in zip(ids, vals)
+                for tid, v in zip(top_ids_cpu[b_idx], top_vals_cpu[b_idx])
             ]
         return out
