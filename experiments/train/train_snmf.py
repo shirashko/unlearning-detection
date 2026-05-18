@@ -14,7 +14,7 @@ from llm_utils.model_utils import load_local_model
 from llm_utils.local_activation_generator import LocalActivationGenerator
 from data_utils.concept_dataset import SupervisedConceptDataset
 from factorization.seminmf import NMFSemiNMF
-from experiments.train.train import  parse_int_list
+from experiments.train.train import parse_int_list
 from llm_utils.utils import set_seed, resolve_device
 
 # Load environment variables (HF_TOKEN)
@@ -176,7 +176,7 @@ def main():
     logger.info(f"Number of labels: {len(labels)}")
     act_gen = LocalActivationGenerator(model, data_device="cpu", mode=args.mode)
 
-    # 
+    #
     activations_per_layer, token_ids, sample_ids = act_gen.generate_activations(
         prompts=prompts, layers=layers, batch_size=args.batch_size
     )

@@ -11,6 +11,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
+#SBATCH --mail-user=rashkovits@mail.tau.ac.il
+#SBATCH --mail-type=BEGIN,END,FAIL
 
 # Weight-space unlearning fingerprint.
 # Compares the base Gemma-2-2b checkpoint against three wmdp-bio unlearned
@@ -38,7 +40,7 @@ export HF_HOME="${HF_HOME:-/home/morg/students/rashkovits/hf_cache}"
 export TORCH_HOME="${TORCH_HOME:-$HF_HOME/torch}"
 export TMPDIR="${TMPDIR:-$HF_HOME}"
 
-REPO_ROOT="/home/morg/students/rashkovits/snmf"
+REPO_ROOT="/home/morg/students/rashkovits/unlearning-detection"
 cd "$REPO_ROOT"
 export PYTHONPATH="${PYTHONPATH:-}:$(pwd)"
 mkdir -p logs "$HF_HOME"

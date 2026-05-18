@@ -4,33 +4,31 @@ import random
 from pathlib import Path
 from typing import List
 
-BASE_DATASET_PATH = "/home/morg/students/rashkovits/Localized-UNDO/datasets"
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Create an unlabeled pretrain JSON file (flat list of texts) sampled from "
-            "train_eng.jsonl and train_wikitext.jsonl. Use --num-files > 1 to write "
-            "several disjoint batches of --samples-per-source per source."
+            "two JSONL sources (--source1-path, --source2-path), each row with a string "
+            '"text" field. Use --num-files > 1 to write several disjoint batches of '
+            "--samples-per-source per source."
         )
     )
     parser.add_argument(
-        "--eng-path",
+        "--source1-path",
         type=Path,
-        default=Path(f"{BASE_DATASET_PATH}/pretrain/train_eng.jsonl"),
-        help="Path to English pretrain JSONL.",
+        required=True,
+        help="Path to first pretrain JSONL.",
     )
     parser.add_argument(
-        "--wikitext-path",
+        "--source2-path",
         type=Path,
-        default=Path(f"{BASE_DATASET_PATH}/pretrain/train_wikitext.jsonl"),
-        help="Path to WikiText pretrain JSONL.",
+        required=True,
+        help="Path to second pretrain JSONL.",
     )
     parser.add_argument(
         "--output-path",
         type=Path,
-        default=Path("data/pretrain_data.json"),
+        default=Path("data/general_data.json"),
         help=(
             "Output path when --num-files=1. When --num-files>1, writes "
             "<stem>_partNNN<suffix> in the same directory."
@@ -112,14 +110,14 @@ def main() -> None:
     if k < 1:
         raise SystemExit("--samples-per-source must be >= 1")
 
-    eng_texts = load_texts(args.eng_path)
-    wiki_texts = load_texts(args.wikitext_path)
+    texts_source1 = load_texts(args.source1_path)
+    texts_source2 = load_texts(args.source2_path)
 
-    max_files = min(len(eng_texts) // k, len(wiki_texts) // k)
+    max_files = min(len(texts_source1) // k, len(texts_source2) // k)
     if max_files == 0:
         raise ValueError(
             f"Sources are too small for one file of {k} samples per source "
-            f"(need ≥{k} rows from each of eng and wikitext)."
+            f"(need ≥{k} rows from each JSONL)."
         )
 
     n_files = min(args.num_files, max_files)
@@ -130,15 +128,15 @@ def main() -> None:
         )
 
     rng = random.Random(args.seed)
-    rng.shuffle(eng_texts)
-    rng.shuffle(wiki_texts)
+    rng.shuffle(texts_source1)
+    rng.shuffle(texts_source2)
 
     out_paths = part_output_paths(args.output_path, n_files)
     for i, out_path in enumerate(out_paths):
-        eng_chunk = eng_texts[i * k : (i + 1) * k]
-        wiki_chunk = wiki_texts[i * k : (i + 1) * k]
+        chunk1 = texts_source1[i * k : (i + 1) * k]
+        chunk2 = texts_source2[i * k : (i + 1) * k]
 
-        combined = list(eng_chunk) + list(wiki_chunk)
+        combined = list(chunk1) + list(chunk2)
         random.Random(args.seed + 30013 * i).shuffle(combined)
 
         output_data = [
@@ -153,13 +151,13 @@ def main() -> None:
             f"({k} per source, {len(output_data)} total; seed={args.seed})."
         )
 
-    used_eng = n_files * k
-    used_wiki = n_files * k
+    used_source1 = n_files * k
+    used_source2 = n_files * k
 
     print("")
     print("Source pool coverage (rows used across all output files / available in each JSONL):")
-    print(f"  eng      ({args.eng_path}): {_pct_str(used_eng, len(eng_texts))}")
-    print(f"  wikitext ({args.wikitext_path}): {_pct_str(used_wiki, len(wiki_texts))}")
+    print(f"  source1 ({args.source1_path}): {_pct_str(used_source1, len(texts_source1))}")
+    print(f"  source2 ({args.source2_path}): {_pct_str(used_source2, len(texts_source2))}")
 
     if n_files == 1:
         print(f"Done: {2 * k} rows total ({k} per source).")
