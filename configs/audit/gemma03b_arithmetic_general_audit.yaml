@@ -1,0 +1,45 @@
+# Prerequisite: SNMF factors (same layers/rank), e.g. train_snmf_gemma03b_arithmetic_general_data.sh.
+
+base_model_path: "/home/morg/students/rashkovits/Localized-UNDO/models/non-wmdp/pretrained_models/gemma-2-0.3B_all_arithmetic+eng/final_model"
+candidate_model_path: "/home/morg/students/rashkovits/Localized-UNDO/models/non-wmdp/unlearned_models/MaxEnt/pretrained_models_gemma-2-0.3B_all_arithmetic+eng_final_model_lr_1.0e-04/final_model"
+snmf_dir: "./outputs/gemma03b_general_snmf_r300"
+data_path: "./data/general_data_part1.json"
+output_dir: "./outputs/gemma03b_audit_maxent_layers_5_10"
+
+layers: "5-10"
+
+runtime:
+  max_prompts: 400
+  batch_size: 8
+  device: auto
+  seed: 42
+
+snmf:
+  mode: mlp_intermediate
+  ridge_lambda: 1.0e-4
+  top_k_global: 20
+  top_k_per_layer: 15
+  rank_by: rel_delta
+  contexts_per_feature: 8
+  context_window: 15
+
+lens:
+  vocab_lens_top_k: 15
+  skip_vocab_lens: false
+  lens_center_unembed: true
+  lens_mask_special_tokens: true
+  vocab_lens_aggregate_top_k: 20
+  lens_delta_weighted: false
+
+rare:
+  context_rare_top_n: 15
+  skip_context_rare_words: false
+  context_rare_zipf_cutoff: 5.5
+  context_rare_min_len: 3
+
+judge:
+  judge_model: gemini-2.5-flash
+  judge_temperature: 0.0
+  judge_max_output_tokens: 1500
+  skip_judge: false
+  judge_api_key_env: GOOGLE_API_KEY
