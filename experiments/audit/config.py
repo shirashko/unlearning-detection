@@ -86,7 +86,7 @@ class ContextRareConfig:
 class JudgeConfig:
     judge_model: str = "gemini-2.5-flash"
     judge_temperature: float = 0.0
-    judge_max_output_tokens: int = 1500
+    judge_max_output_tokens: int = 8192
     skip_judge: bool = False
     judge_api_key_env: str = "GOOGLE_API_KEY"
 

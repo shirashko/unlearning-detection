@@ -28,7 +28,7 @@ class GeminiAuditJudge:
         *,
         model: str,
         temperature: float = 0.0,
-        max_output_tokens: int = 1024,
+        max_output_tokens: int = 8192,
         api_key_env: str = "GOOGLE_API_KEY",
     ) -> None:
         """Initialize the audit judge framework.
