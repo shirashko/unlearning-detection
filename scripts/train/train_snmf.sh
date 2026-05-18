@@ -11,6 +11,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=80G
+#SBATCH --mail-user=rashkovits@mail.tau.ac.il
+#SBATCH --mail-type=BEGIN,END,FAIL
 
 # --- Environment Setup ---
 source /home/morg/students/rashkovits/miniconda3/etc/profile.d/conda.sh
@@ -21,14 +23,15 @@ export HF_HOME="/home/morg/students/rashkovits/hf_cache"
 export TORCH_HOME="/home/morg/students/rashkovits/hf_cache/torch"
 export TMPDIR="/home/morg/students/rashkovits/hf_cache"
 
-# --- Project Setup ---
-cd /home/morg/students/rashkovits/snmf
-export PYTHONPATH=$PYTHONPATH:$(pwd)
+# --- Project Setup (unlearning-detection checkout) ---
+REPO_ROOT="${REPO_ROOT:-/home/morg/students/rashkovits/unlearning-detection}"
+cd "$REPO_ROOT"
+export PYTHONPATH="${PYTHONPATH:-}:$(pwd)"
 
 # Defaults target the WMDP-bio Gemma-2-2b setup.
 MODEL_PATH="${MODEL_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/wmdp/gemma-2-2b}"
-DATA_PATH="${DATA_PATH:-data/bio_data_part1.json}"
-OUTPUT_DIR="${OUTPUT_DIR:-outputs/wmdp/results_data_part1_gemma2_2b_450_rank}"
+DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/bio_data_part1.json}"
+OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/outputs/wmdp/results_data_part1_gemma2_2b_450_rank}"
 LAYERS="${LAYERS:-0-25}"        # Gemma-2-2b has 26 layers => indices 0..25
 RANK="${RANK:-450}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
@@ -83,7 +86,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 echo "--------------------------------------------------------"
 
-python train_snmf.py \
+python experiments/train/train_snmf.py \
     --model-path "$MODEL_PATH" \
     --data-path "$DATA_PATH" \
     --output-dir "$OUTPUT_DIR" \

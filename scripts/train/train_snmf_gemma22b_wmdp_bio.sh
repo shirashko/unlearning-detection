@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=snmf_g03b_general
-#SBATCH --output=logs/train_snmf_g03b_general_%j.out
-#SBATCH --error=logs/train_snmf_g03b_general_%j.err
+#SBATCH --job-name=snmf_g22b_general_rank300
+#SBATCH --output=logs/train_snmf_g22b_general_rank300_%j.out
+#SBATCH --error=logs/train_snmf_g22b_general_rank300_%j.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu-morgeva
 #SBATCH --account=gpu-research
@@ -13,21 +13,22 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 
 
-# Example (from this repository's root directory):
-#   cd /path/to/unlearning-detection
-#   env RANK=200 LAYERS=0-13 sbatch scripts/train/train_snmf_gemma03b_arithmetic_general_data.sh
-#
+# Defaults mirror outputs/gemma22b_general_snmf_r300/config.json (Gemma-2-2B, general_data part1, rank 300, layers 0–25, normalize off).
+# Gemma-2-2B: num_hidden_layers=26 ⇒ indices 0–25 cover the full stack.
+# Example (run from repo root):
+#   cd /home/morg/students/rashkovits/unlearning-detection && sbatch scripts/train/train_snmf_gemma22b_wmdp_bio.sh
+#   env RANK=400 sbatch scripts/train/train_snmf_gemma22b_wmdp_bio.sh   # ⇒ outputs/gemma22b_general_snmf_r400
 
 set -euo pipefail
 
 source scripts/audit/audit_runner_env.sh
 
-MODEL_PATH="${MODEL_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/non-wmdp/pretrained_models/gemma-2-0.3B_all_arithmetic+eng/final_model}"
+MODEL_PATH="${MODEL_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/wmdp/gemma-2-2b}"
 DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/general_data_part1.json}"
 
 RANK="${RANK:-300}"
-LAYERS="${LAYERS:-0-13}"
-OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/outputs/gemma03b_general_snmf_r${RANK}}"
+LAYERS="${LAYERS:-0-25}"
+OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/outputs/gemma22b_general_snmf_r${RANK}}"
 mkdir -p "$OUTPUT_DIR"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"
@@ -55,11 +56,11 @@ if [[ "$REQUIRE_GPU" == "1" ]]; then
 fi
 
 echo "----------------------------------------------------------------"
-echo " SNMF (general audit basis) — Gemma-2-0.3B arithmetic+eng base"
+echo " SNMF Training"
 echo " Model:     $MODEL_PATH"
 echo " Data:      $DATA_PATH"
 echo " Out:       $OUTPUT_DIR"
-echo " Layers:    $LAYERS  (0.3B has 14 layers → indices 0–13)"
+echo " Layers:    $LAYERS  (Gemma-2-2B: num_hidden_layers=26 → indices 0–25)"
 echo " Rank:      $RANK"
 echo "----------------------------------------------------------------"
 

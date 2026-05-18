@@ -12,6 +12,8 @@
 #SBATCH --partition=studentkillable
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
+#SBATCH --mail-user=rashkovits@mail.tau.ac.il
+#SBATCH --mail-type=BEGIN,END,FAIL
 
 set -euo pipefail
 
@@ -23,7 +25,7 @@ export HF_HOME="${HF_HOME:-/home/morg/students/rashkovits/hf_cache}"
 export TMPDIR="${TMPDIR:-$HF_HOME}"
 
 # --- Repo ---
-REPO_ROOT="${REPO_ROOT:-/home/morg/students/rashkovits/snmf}"
+REPO_ROOT="${REPO_ROOT:-/home/morg/students/rashkovits/unlearning-detection}"
 cd "$REPO_ROOT"
 export PYTHONPATH="${PYTHONPATH:-}:$(pwd)"
 
@@ -36,25 +38,27 @@ SAMPLES_PER_SOURCE="${SAMPLES_PER_SOURCE:-600}"
 SEED="${SEED:-42}"
 MAX_TOKENS="${MAX_TOKENS:-256}"
 
-# Optional: set to override JSONL paths (empty = use Python defaults under Localized-UNDO/datasets)
-ENG_PATH="${ENG_PATH:-}"
-WIKITEXT_PATH="${WIKITEXT_PATH:-}"
+BASE_DATASET_PATH="${BASE_DATASET_PATH:-/home/morg/students/rashkovits/Localized-UNDO/datasets}"
+SOURCE1_PATH="${SOURCE1_PATH:-$BASE_DATASET_PATH/pretrain/train_eng.jsonl}"
+SOURCE2_PATH="${SOURCE2_PATH:-$BASE_DATASET_PATH/pretrain/train_wikitext.jsonl}"
 
 CMD=(
   python data_utils/create_general_data.py
+  --source1-path "$SOURCE1_PATH"
+  --source2-path "$SOURCE2_PATH"
   --output-path "$OUTPUT_PATH"
   --num-files "$NUM_FILES"
   --samples-per-source "$SAMPLES_PER_SOURCE"
   --seed "$SEED"
   --max-tokens "$MAX_TOKENS"
 )
-[[ -n "$ENG_PATH" ]] && CMD+=(--eng-path "$ENG_PATH")
-[[ -n "$WIKITEXT_PATH" ]] && CMD+=(--wikitext-path "$WIKITEXT_PATH")
 
 echo "================================================================"
 echo " create_general_data.py | Node: ${SLURMD_NODENAME:-local}"
 echo " Repo:            $REPO_ROOT"
 echo " Output:          $OUTPUT_PATH"
+echo " Source1:         $SOURCE1_PATH"
+echo " Source2:         $SOURCE2_PATH"
 echo " Num files:       $NUM_FILES"
 echo " Samples/source:  $SAMPLES_PER_SOURCE"
 echo " Seed:            $SEED"
