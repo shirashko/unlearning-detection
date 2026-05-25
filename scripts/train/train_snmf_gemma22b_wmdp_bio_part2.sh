@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=snmf_g22b_general_rank300
-#SBATCH --output=logs/train_snmf_g22b_general_rank300_%j.out
-#SBATCH --error=logs/train_snmf_g22b_general_rank300_%j.err
+#SBATCH --job-name=snmf_general_part2
+#SBATCH --output=logs/train_snmf_general_part2_%j.out
+#SBATCH --error=logs/train_snmf_general_part2_%j.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu-morgeva
 #SBATCH --account=gpu-research
@@ -13,22 +13,22 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 
 
-# Defaults mirror outputs/gemma22b_general_snmf_r300/config.json (Gemma-2-2B, general_data part1, rank 300, layers 0–25, normalize off).
+# Defaults mirror outputs/gemma22b_general_snmf_r300/config.json (Gemma-2-2B, general_data part2, rank 300, layers 0–25, normalize off).
 # Gemma-2-2B: num_hidden_layers=26 ⇒ indices 0–25 cover the full stack.
 # Example (run from repo root):
-#   cd /home/morg/students/rashkovits/unlearning-detection && sbatch scripts/train/train_snmf_gemma22b_wmdp_bio.sh
-#   env RANK=400 sbatch scripts/train/train_snmf_gemma22b_wmdp_bio.sh   # ⇒ outputs/gemma22b_general_snmf_r400
+#   cd /home/morg/students/rashkovits/unlearning-detection && sbatch scripts/train/train_snmf_gemma22b_wmdp_bio_part2.sh
+#   env RANK=400 sbatch scripts/train/train_snmf_gemma22b_wmdp_bio_part2.sh   # ⇒ outputs/gemma22b_general_snmf_r400_part2
 
 set -euo pipefail
 
 source scripts/audit/audit_runner_env.sh
 
 MODEL_PATH="${MODEL_PATH:-${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b}}"
-DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/general_data_part1.json}"
+DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/general_data_part2.json}"
 
 RANK="${RANK:-300}"
 LAYERS="${LAYERS:-0-25}"
-OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/outputs/gemma22b_general_snmf_r${RANK}}"
+OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/outputs/gemma22b_general_snmf_r${RANK}_part2}"
 mkdir -p "$OUTPUT_DIR"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"

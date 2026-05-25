@@ -46,6 +46,6 @@ rare:
 judge:
   judge_model: gemini-2.5-flash
   judge_temperature: 0.0
-  judge_max_output_tokens: 1500
+  judge_max_output_tokens: 8192
   skip_judge: false
   judge_api_key_env: GOOGLE_API_KEY

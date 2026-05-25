@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence
 
 import torch
+
+from experiments.audit.special_tokens import (
+    LOGIT_LENS_SPECIAL_TOKEN_PATTERNS,
+    LOGIT_LENS_SPECIAL_TOKEN_PREFIXES,
+)
 
 
 class LogitLens:
@@ -20,14 +25,6 @@ class LogitLens:
         * mask_special_tokens (Default: True): Sets logits of control/structural tokens (<bos>, <eos>, 
           Gemma turn tags) to -inf. Prevents outlier unembedding weights from dominating top-k indices.
     """
-
-    _SPECIAL_TOKEN_PATTERNS: Tuple[str, ...] = (
-        "<bos>", "<eos>", "<pad>", "<unk>", "<mask>", "<sep>", "<cls>",
-    )
-    _SPECIAL_TOKEN_PREFIXES: Tuple[str, ...] = (
-        "<unused", "<reserved", "<start_of_turn", "<end_of_turn",
-        "<|", "<extra_id_",
-    )
 
     def __init__(
         self,
@@ -73,8 +70,8 @@ class LogitLens:
         for tid, tok in added.items():
             text = getattr(tok, "content", None) or str(tok)
             if isinstance(text, str) and (
-                text in cls._SPECIAL_TOKEN_PATTERNS
-                or text.startswith(cls._SPECIAL_TOKEN_PREFIXES)
+                text in LOGIT_LENS_SPECIAL_TOKEN_PATTERNS
+                or text.startswith(LOGIT_LENS_SPECIAL_TOKEN_PREFIXES)
             ):
                 try:
                     ids.add(int(tid))

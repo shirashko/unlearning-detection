@@ -10,6 +10,21 @@ from experiments.audit.judge_constants import (
 )
 
 
+def _finish_reason_label(response: Any) -> Optional[str]:
+    """Extract a clean finish reason (e.g. ``MAX_TOKENS``)"""
+    try:
+        candidate = response.candidates[0]
+        fr = getattr(candidate, "finish_reason", None)
+        if fr is None:
+            return None
+        fr_str = str(fr.name if getattr(fr, "name", None) else fr).strip()
+        if not fr_str:
+            return None
+        return fr_str.split(".")[-1].upper()
+    except (AttributeError, IndexError, TypeError):
+        return None
+
+
 class GeminiAuditJudge:
     """
     An automated, blind evaluation framework that leverages Gemini LLM 
@@ -28,7 +43,7 @@ class GeminiAuditJudge:
         *,
         model: str,
         temperature: float = 0.0,
-        max_output_tokens: int = 1024,
+        max_output_tokens: int = 8192,
         api_key_env: str = "GOOGLE_API_KEY",
     ) -> None:
         """Initialize the audit judge framework.
@@ -104,7 +119,9 @@ class GeminiAuditJudge:
             
             if ctxs := rec.get("top_contexts"):
                 for j, ctx in enumerate(ctxs, start=1):
-                    parts.append(f"    {j:>2}. act={ctx['activation']:.3f}  sample={ctx['sample_id']}  | {ctx['context']}")
+                    parts.append(
+                        f"    {j:>2}. act={ctx['activation']:.3f}  | {ctx['context']}"
+                    )
             else:
                 parts.append("    (no contexts recorded)")
                 
@@ -202,11 +219,15 @@ class GeminiAuditJudge:
         return "\n".join(parts)
 
 
-    def call_gemini(self, prompt: str) -> Tuple[str, Optional[str]]:
+    def call_gemini(self, prompt: str) -> Tuple[str, Optional[str], Optional[str]]:
         """
         Invoke Gemini with this instance's model and generation settings.
 
         Uses the API key validated at construction time (see ``__init__``).
+
+        Returns:
+            ``(text, error, finish_reason)``. ``finish_reason`` is set when the
+            SDK returns a response with candidates (e.g. ``STOP``, ``MAX_TOKENS``).
         """
         errors: List[str] = []
 
@@ -225,7 +246,8 @@ class GeminiAuditJudge:
                 contents=prompt,
                 config=gen_cfg,
             )
-            return getattr(resp, "text", "") or "", None
+            text = getattr(resp, "text", "") or ""
+            return text, None, _finish_reason_label(resp)
         except ImportError:
             errors.append("google-genai not installed")
         except Exception as e:
@@ -244,7 +266,8 @@ class GeminiAuditJudge:
                     "response_mime_type": "application/json",
                 },
             )
-            return getattr(resp, "text", "") or "", None
+            text = getattr(resp, "text", "") or ""
+            return text, None, _finish_reason_label(resp)
         except ImportError:
             errors.append(
                 "google-generativeai not installed; install one of "
@@ -254,7 +277,7 @@ class GeminiAuditJudge:
         except Exception as e:
             errors.append(f"google-generativeai call failed: {e}")
 
-        return "", " | ".join(errors)
+        return "", " | ".join(errors), None
 
 
 def _strip_code_fence(text: str) -> str:

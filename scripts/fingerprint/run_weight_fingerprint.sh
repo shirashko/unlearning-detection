@@ -45,8 +45,11 @@ cd "$REPO_ROOT"
 export PYTHONPATH="${PYTHONPATH:-}:$(pwd)"
 mkdir -p logs "$HF_HOME"
 
+# shellcheck source=scripts/audit/audit_runner_env.sh
+source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
+
 # --- Models ---
-BASE_MODEL_PATH="${BASE_MODEL_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/wmdp/gemma-2-2b}"
+BASE_MODEL_PATH="${BASE_MODEL_PATH:-${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b}}"
 SNMF_PATH="${SNMF_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/wmdp/snmf_iter3b_thr030_bio_retain_and_neutral}"
 MAXENT_PATH="${MAXENT_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/wmdp/unlearned_models/MaxEnt/bio_lr_2.00e-05_alpha_0.30_seed_42/final_model}"
 RMU_PATH="${RMU_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/wmdp/unlearned_models/RMU/bio_lr_1.00e-04_alpha_0.30_seed_42/final_model}"

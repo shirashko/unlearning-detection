@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import asdict, dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Literal, Optional, Set, Type, TypeVar, Union, get_args
@@ -23,6 +24,13 @@ def _rank_by_choices() -> tuple[str, ...]: return get_args(RankBy)
 def _mode_choices() -> tuple[str, ...]: return get_args(ActivationMode)
 
 T = TypeVar("T")
+
+def _expand_path_fields(s: str) -> str:
+    """Expand ${VAR} / ~ so YAML can use env vars set by audit_runner_env.sh."""
+    if not s:
+        return s
+    return os.path.expandvars(os.path.expanduser(str(s)))
+
 
 def _pick_dataclass_kwargs(dc_type: Type[T], data: Dict[str, Any]) -> Dict[str, Any]:
     names = {f.name for f in fields(dc_type)}
@@ -86,7 +94,7 @@ class ContextRareConfig:
 class JudgeConfig:
     judge_model: str = "gemini-2.5-flash"
     judge_temperature: float = 0.0
-    judge_max_output_tokens: int = 1500
+    judge_max_output_tokens: int = 8192
     skip_judge: bool = False
     judge_api_key_env: str = "GOOGLE_API_KEY"
 
@@ -156,11 +164,11 @@ def audit_config_from_dict(raw: Optional[Dict[str, Any]]) -> AuditConfig:
     root = dict(raw)
 
     cfg = AuditConfig(
-        base_model_path=str(root.pop("base_model_path", "") or ""),
-        candidate_model_path=str(root.pop("candidate_model_path", "") or ""),
-        snmf_dir=str(root.pop("snmf_dir", "") or ""),
-        data_path=str(root.pop("data_path", "") or ""),
-        output_dir=str(root.pop("output_dir", "") or ""),
+        base_model_path=_expand_path_fields(str(root.pop("base_model_path", "") or "")),
+        candidate_model_path=_expand_path_fields(str(root.pop("candidate_model_path", "") or "")),
+        snmf_dir=_expand_path_fields(str(root.pop("snmf_dir", "") or "")),
+        data_path=_expand_path_fields(str(root.pop("data_path", "") or "")),
+        output_dir=_expand_path_fields(str(root.pop("output_dir", "") or "")),
         layers=root.pop("layers", None),
     )
 
