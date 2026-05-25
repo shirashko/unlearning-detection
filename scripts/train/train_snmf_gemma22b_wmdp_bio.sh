@@ -23,7 +23,7 @@ set -euo pipefail
 
 source scripts/audit/audit_runner_env.sh
 
-MODEL_PATH="${MODEL_PATH:-/home/morg/students/rashkovits/Localized-UNDO/models/wmdp/gemma-2-2b}"
+MODEL_PATH="${MODEL_PATH:-${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b}}"
 DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/general_data_part1.json}"
 
 RANK="${RANK:-300}"

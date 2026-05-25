@@ -1,12 +1,12 @@
-# Gemma 0.3B · MaxEnt · SNMF-based audit (general_unlearning_audit.py).
-# Prerequisite: SNMF factors (same layers/rank), e.g. train_snmf_gemma03b_arithmetic_general_data.sh.
-# Use gemma03b_arithmetic_baseline_audit.yaml for baseline_unlearning_audit.py — separate output_dir.
+# Gemma 0.3B · MaxEnt · baseline (raw MLP neuron) audit (baseline_unlearning_audit.py).
+# Same experiment settings as gemma03b_arithmetic_general_audit.yaml but a distinct output_dir
+# so SNMF-based runs (general_unlearning_audit.py) do not overwrite these artifacts.
 
 base_model_path: "/home/morg/students/rashkovits/Localized-UNDO/models/non-wmdp/pretrained_models/gemma-2-0.3B_all_arithmetic+eng/final_model"
 candidate_model_path: "/home/morg/students/rashkovits/Localized-UNDO/models/non-wmdp/unlearned_models/MaxEnt/pretrained_models_gemma-2-0.3B_all_arithmetic+eng_final_model_lr_1.0e-04/final_model"
 snmf_dir: "./outputs/gemma03b_general_snmf_r300"
 data_path: "./data/general_data_part1.json"
-output_dir: "./outputs/gemma03b_snmf_audit_maxent_layers_5_10"
+output_dir: "./outputs/gemma03b_baseline_audit_maxent_layers_5_10"
 
 layers: "5-10"
 

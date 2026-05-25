@@ -44,7 +44,8 @@ source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 # ------------------------------------------------------------------------------
 # 3. Configuration Resolution
 # ------------------------------------------------------------------------------
-# Default fallback to g03b if AUDIT_CONFIG environment variable is missing
+# Default fallback to g03b SNMF audit config if AUDIT_CONFIG is missing (distinct
+# output_dir from gemma03b_arithmetic_baseline_audit.yaml used by run_baseline_unlearning_audit.sh).
 DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma03b_arithmetic_general_audit.yaml"
 CONFIG="${AUDIT_CONFIG:-$DEFAULT_CONFIG}"
 
