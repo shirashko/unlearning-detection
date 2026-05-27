@@ -24,6 +24,9 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
+# Toy evaluation generated reports
+tests/toy_target_eval/out/
+
 # Experiment outputs (scripts write JSON, .pkl factorizations, etc. here)
 outputs/
 experiments/artifacts/
