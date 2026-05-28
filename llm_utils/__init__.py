@@ -1,4 +1,6 @@
 """LLM-specific utilities used by the SNMF project."""
 
-"""Utilities used across SNMF/LLM tooling."""
+from llm_utils.gemini_client import GeminiClient
+
+__all__ = ["GeminiClient"]
 
