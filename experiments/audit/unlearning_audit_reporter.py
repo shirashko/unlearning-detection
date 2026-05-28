@@ -301,17 +301,24 @@ def _strip_code_fence(text: str) -> str:
 
 
 def parse_judge_json(text: str) -> Dict[str, Any]:
-    """Best-effort: parse the model's output as JSON; fall back to regex search."""
+    """Best-effort: parse the model's output as a JSON object, fall back to regex search."""
     cleaned = _strip_code_fence(text)
     try:
-        return json.loads(cleaned)
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            return parsed
     except json.JSONDecodeError:
-        m = re.search(r"\{[\s\S]*\}", cleaned)
-        if m:
-            try:
-                return json.loads(m.group(0))
-            except json.JSONDecodeError:
-                pass
+        pass
+
+    m = re.search(r"\{[\s\S]*\}", cleaned)
+    if m:
+        try:
+            parsed = json.loads(m.group(0))
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
     return {
         "_parse_error": "Failed to parse JSON from judge response.",
         "_raw_text": text,
