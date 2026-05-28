@@ -62,7 +62,7 @@ from experiments.audit.general_unlearning_audit import (
     _emit_audit_run_summary_logs,
     setup_logger,
 )
-from experiments.audit.judge import GeminiAuditJudge
+from experiments.audit.unlearning_audit_reporter import UnlearningAuditReporter
 from experiments.audit.logit_lens import LogitLens
 from experiments.audit.summary_report import build_audit_summary_report
 from experiments.audit.text_processing import (
@@ -678,7 +678,7 @@ def run_baseline_audit(
         str(Path(cache_key).resolve()) if cache_key else "live_activation_collection"
     )
 
-    judge_prompt = GeminiAuditJudge.build_audit_report_prompt(
+    judge_prompt = UnlearningAuditReporter.build_audit_report_prompt(
         n_prompts=int(n_prompts_meta),
         layers=layers,
         rank_by=cfg.snmf.rank_by,
