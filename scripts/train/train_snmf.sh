@@ -33,7 +33,7 @@ source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 
 # Defaults target the Gemma-2-2b-it setup (HF repo id + HF_HUB_CACHE from audit_runner_env.sh).
 MODEL_PATH="${MODEL_PATH:-${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b-it}}"
-DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/bio_data_part1.json}"
+DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/general_data_part1.json}"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/outputs/gemma_2_2b_it/data_part1_rank_350}"
 LAYERS="${LAYERS:-0-25}"  # cover all layers
 RANK="${RANK:-350}"
