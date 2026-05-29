@@ -52,10 +52,10 @@ fi
 # 3. Cache Topologies & Runtime Variables
 # ------------------------------------------------------------------------------
 # Model weights: point Hugging Face Hub cache at the shared morg tree so repo ids
-# like google/gemma-2-2b resolve from disk (no snapshot paths in YAML).
+# like google/gemma-2-2b-it resolve from disk (no snapshot paths in YAML).
 export MORG_DATASET_MODELS_ROOT="${MORG_DATASET_MODELS_ROOT:-/home/morg/dataset/models}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-${MORG_DATASET_MODELS_ROOT}}"
-export DEFAULT_GEMMA_2_2B_MODEL="${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b}"
+export DEFAULT_GEMMA_2_2B_MODEL="${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b-it}"
 
 export CACHE_ROOT="${CACHE_ROOT:-${WORKSPACE_ROOT}/hf_cache}"
 export HF_HOME="${HF_HOME:-${CACHE_ROOT}}"
