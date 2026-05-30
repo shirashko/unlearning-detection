@@ -1,0 +1,44 @@
+# Default Gemma-2-2B weights: Hugging Face repo id (loaded from HF_HUB_CACHE, see audit_runner_env.sh).
+base_model_path: "${DEFAULT_GEMMA_2_2B_MODEL}"
+candidate_model_path: "/home/morg/students/rashkovits/SNMF-Erasure/unlearned_checkpoints/rmu/google_gemma-2-2b-it/Ancient_Rome"
+snmf_dir: "./outputs/gemma_2_2b_it/data_part1_rank_350"
+data_path: "./data/general_data_part1.json"
+output_dir: "./outputs/gemma_2_2b_it/data_part1_rank_350_audit"
+
+layers: "0-25"
+
+runtime:
+  max_prompts: 400
+  batch_size: 8
+  device: auto
+  seed: 42
+
+snmf:
+  mode: mlp_intermediate
+  ridge_lambda: 1.0e-4
+  top_k_global: 20
+  top_k_per_layer: 15
+  rank_by: rel_delta
+  contexts_per_feature: 8
+  context_window: 15
+
+lens:
+  vocab_lens_top_k: 15
+  skip_vocab_lens: false
+  lens_center_unembed: true
+  lens_mask_special_tokens: true
+  vocab_lens_aggregate_top_k: 20
+  lens_delta_weighted: false
+
+rare:
+  context_rare_top_n: 15
+  skip_context_rare_words: false
+  context_rare_zipf_cutoff: 5.5
+  context_rare_min_len: 3
+
+judge:
+  judge_model: gemini-2.5-flash
+  judge_temperature: 0.0
+  judge_max_output_tokens: 8192
+  skip_judge: false
+  judge_api_key_env: GOOGLE_API_KEY

@@ -1,0 +1,107 @@
+#!/bin/bash
+
+# --- Slurm Configuration ---
+#SBATCH --job-name=train_snmf_llama2_2b_it_data_part1_rank_350
+#SBATCH --output=logs/train_snmf_llama2_2b_it_data_part1_rank_350_%j.out
+#SBATCH --error=logs/train_snmf_llama2_2b_it_data_part1_rank_350_%j.err
+#SBATCH --time=24:00:00
+#SBATCH --partition=gpu-morgeva
+#SBATCH --account=gpu-research
+#SBATCH --constraint=h100
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=80G
+#SBATCH --mail-user=rashkovits@mail.tau.ac.il
+#SBATCH --mail-type=BEGIN,END,FAIL
+
+# --- Environment Setup ---
+source /home/morg/students/rashkovits/miniconda3/etc/profile.d/conda.sh
+conda activate /home/morg/students/rashkovits/envs/snmf_env
+
+# --- Space & Cache Management ---
+export HF_HOME="/home/morg/students/rashkovits/hf_cache"
+export TORCH_HOME="/home/morg/students/rashkovits/hf_cache/torch"
+export TMPDIR="/home/morg/students/rashkovits/hf_cache"
+
+# --- Project Setup (unlearning-detection checkout) ---
+REPO_ROOT="${REPO_ROOT:-/home/morg/students/rashkovits/unlearning-detection}"
+cd "$REPO_ROOT"
+export PYTHONPATH="${PYTHONPATH:-}:$(pwd)"
+
+# shellcheck source=scripts/audit/audit_runner_env.sh
+source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
+
+# Defaults target the llama-2-2b-it setup (HF repo id + HF_HUB_CACHE from audit_runner_env.sh).
+MODEL_PATH="${MODEL_PATH:-${DEFAULT_LLAMA_3_1_8B_MODEL:-meta-llama/Llama-3.1-8B-Instruct}}"
+DATA_PATH="${DATA_PATH:-${REPO_ROOT}/data/general_data_part1.json}"
+OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/outputs/llama3_1_8b_it/data_part1_rank_350}"
+LAYERS="${LAYERS:-0-31}"  # cover all layers
+RANK="${RANK:-350}"
+BATCH_SIZE="${BATCH_SIZE:-8}"
+SNMF_MODE="${SNMF_MODE:-mlp_intermediate}"
+SNMF_INIT="${SNMF_INIT:-svd}"
+DEVICE="${DEVICE:-cuda}"
+SPARSITY="${SPARSITY:-0.01}"
+MAX_ITER="${MAX_ITER:-3000}"
+SEED="${SEED:-42}"
+REQUIRE_GPU="${REQUIRE_GPU:-1}"   # 1 => fail fast if CUDA GPU is not usable
+mkdir -p logs "$OUTPUT_DIR" $HF_HOME
+
+# --- Parallelism Optimization ---
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+# --- GPU Preflight ---
+if [[ "$REQUIRE_GPU" == "1" ]]; then
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    echo "[train_snmf.sh] REQUIRE_GPU=1 but nvidia-smi is unavailable."
+    exit 1
+  fi
+  if ! nvidia-smi -L >/dev/null 2>&1; then
+    echo "[train_snmf.sh] REQUIRE_GPU=1 but no visible NVIDIA GPU."
+    exit 1
+  fi
+  python3 - <<'PY'
+import sys
+import torch
+if not torch.cuda.is_available():
+    print("[train_snmf.sh] torch.cuda.is_available() is False.")
+    sys.exit(1)
+major, minor = torch.cuda.get_device_capability(0)
+if major < 7:
+    print(f"[train_snmf.sh] Unsupported CUDA capability sm_{major}{minor}; expected sm_70+.")
+    sys.exit(1)
+print(f"[train_snmf.sh] CUDA ready on {torch.cuda.get_device_name(0)} (sm_{major}{minor}).")
+PY
+fi
+
+# --- Execute Training ---
+echo "--------------------------------------------------------"
+echo "Starting SNMF Training on Node: $SLURMD_NODENAME"
+echo "Model path: $MODEL_PATH"
+echo "Data path: $DATA_PATH"
+echo "Output directory: $OUTPUT_DIR"
+echo "Layers: $LAYERS"
+echo "Device: $DEVICE"
+if command -v nvidia-smi >/dev/null 2>&1; then
+  echo "Visible GPUs:"
+  nvidia-smi -L || true
+fi
+echo "--------------------------------------------------------"
+
+python experiments/train/train_snmf.py \
+    --model-path "$MODEL_PATH" \
+    --data-path "$DATA_PATH" \
+    --output-dir "$OUTPUT_DIR" \
+    --layers "$LAYERS" \
+    --rank "$RANK" \
+    --mode "$SNMF_MODE" \
+    --init "$SNMF_INIT" \
+    --batch-size "$BATCH_SIZE" \
+    --device "$DEVICE" \
+    --sparsity "$SPARSITY" \
+    --max-iter "$MAX_ITER" \
+    --seed "$SEED"
+
+echo "--------------------------------------------------------"
+echo "SNMF Training Finished"

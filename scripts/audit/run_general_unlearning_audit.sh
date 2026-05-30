@@ -3,24 +3,24 @@
 # Unified Slurm Wrapper for General Unlearning Audit Experiments
 # ==============================================================================
 #
-# Default behavior (Gemma 0.3B Arithmetic):
+# Default behavior (Gemma-2-2B-it RMU):
 #   sbatch scripts/audit/run_general_unlearning_audit.sh
 #
-# Overridden behavior (Gemma-2-2B WMDP Bio RMU):
+# Overridden behavior (custom config):
 #   AUDIT_CONFIG="configs/audit/gemma22b_wmdp_bio_rmu_general_audit.yaml" \
-#   sbatch --job-name=audit_g22b_wmdp_bio_rmu \
-#          --output=logs/general_unlearning_audit_g22b_wmdp_%j.out \
-#          --error=logs/general_unlearning_audit_g22b_wmdp_%j.err \
+#   sbatch --job-name=audit_custom \
+#          --output=logs/audit_custom_%j.out \
+#          --error=logs/audit_custom_%j.err \
 #          scripts/audit/run_general_unlearning_audit.sh
 #
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 1. Slurm Resource Allocation (Baseline Configuration: g03b)
+# 1. Slurm Resource Allocation (Default: g22b-it RMU audit)
 # ------------------------------------------------------------------------------
-#SBATCH --job-name=audit_g03b_arith
-#SBATCH --output=logs/audit_g03b_%j.out
-#SBATCH --error=logs/audit_g03b_%j.err
+#SBATCH --job-name=audit_g22b_it_rmu
+#SBATCH --output=logs/audit_g22b_it_rmu_%j.out
+#SBATCH --error=logs/audit_g22b_it_rmu_%j.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu-morgeva
 #SBATCH --account=gpu-research
@@ -44,9 +44,8 @@ source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 # ------------------------------------------------------------------------------
 # 3. Configuration Resolution
 # ------------------------------------------------------------------------------
-# Default fallback to g03b SNMF audit config if AUDIT_CONFIG is missing (distinct
-# output_dir from gemma03b_arithmetic_baseline_audit.yaml used by run_baseline_unlearning_audit.sh).
-DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma03b_arithmetic_general_audit.yaml"
+# Default fallback to Gemma-2-2B-it RMU audit config if AUDIT_CONFIG is missing.
+DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma2_2b_it_rmu.yaml"
 CONFIG="${AUDIT_CONFIG:-$DEFAULT_CONFIG}"
 
 echo "[audit] Infrastructure initialization complete."
