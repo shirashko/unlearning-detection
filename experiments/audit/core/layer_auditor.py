@@ -12,6 +12,7 @@ from experiments.audit.core.projection import (
     SubspaceProjector,
     per_prompt_peaks,
 )
+from experiments.audit.core.metric_format import round_audit_metric
 from experiments.audit.core.rankers import (
     REL_DELTA_EPS,
     RankerFactory,
@@ -95,10 +96,10 @@ class LayerAuditor:
         for i in range(K):
             rec = {
                 "latent_idx": i,
-                "mean_Y_base": float(mean_base[i]),
-                "mean_Y_candidate": float(mean_cand[i]),
-                "rel_delta": float(rel_delta[i]),
-                "abs_rel_delta": float(abs_rel_delta[i]),
+                "mean_Y_base": round_audit_metric(float(mean_base[i])),
+                "mean_Y_candidate": round_audit_metric(float(mean_cand[i])),
+                "rel_delta": round_audit_metric(float(rel_delta[i])),
+                "abs_rel_delta": round_audit_metric(float(abs_rel_delta[i])),
             }
             per_latent[i] = rec
             row = dict(rec)
@@ -106,12 +107,12 @@ class LayerAuditor:
             rows.append(row)
 
         rel_delta_stats = {
-            "mean": float(rel_delta.mean()),
-            "std": float(rel_delta.std()),
-            "max": float(rel_delta.max()),
-            "min": float(rel_delta.min()),
-            "p99": float(np.percentile(rel_delta, 99)),
-            "p1": float(np.percentile(rel_delta, 1)),
+            "mean": round_audit_metric(float(rel_delta.mean())),
+            "std": round_audit_metric(float(rel_delta.std())),
+            "max": round_audit_metric(float(rel_delta.max())),
+            "min": round_audit_metric(float(rel_delta.min())),
+            "p99": round_audit_metric(float(np.percentile(rel_delta, 99))),
+            "p1": round_audit_metric(float(np.percentile(rel_delta, 1))),
             "epsilon": REL_DELTA_EPS,
         }
 
@@ -122,9 +123,9 @@ class LayerAuditor:
             "n_prompts": int(len(sample_ids_list)),
             "ridge_lambda": ridge_lambda,
             "reconstruction_residual_relative": {
-                "base": res["base"],
-                "candidate": res["candidate"],
-                "delta": res["delta"],
+                "base": round_audit_metric(float(res["base"])),
+                "candidate": round_audit_metric(float(res["candidate"])),
+                "delta": round_audit_metric(float(res["delta"])),
             },
             "rel_delta_stats": rel_delta_stats,
             "rank_by": rank_by,

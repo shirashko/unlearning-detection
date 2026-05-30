@@ -22,9 +22,7 @@
 #SBATCH --output=logs/audit_g22b_it_rmu_%j.out
 #SBATCH --error=logs/audit_g22b_it_rmu_%j.err
 #SBATCH --time=24:00:00
-#SBATCH --partition=gpu-morgeva
-#SBATCH --account=gpu-research
-#SBATCH --constraint=h100
+#SBATCH --partition=studentkillable
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=80G

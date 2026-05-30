@@ -43,6 +43,7 @@ from experiments.audit.config import (
 )
 from experiments.audit.context_windows import _sample_id_to_spans
 from experiments.audit.core.layer_auditor import LayerAuditor
+from experiments.audit.core.metric_format import round_audit_residual_norm
 from experiments.audit.core.projection import SubspaceProjector, per_prompt_peaks
 from experiments.audit.core.rankers import (
     REL_DELTA_EPS,
@@ -302,7 +303,7 @@ def _build_cross_layer_logit_lens_aggregate_raw(
         "n_layers_spanned": int(len(actual_layers)),
         "delta_weighted": bool(cfg.lens.lens_delta_weighted),
         "rank_by": cfg.snmf.rank_by,
-        "residual_norm": float(r_global.norm().item()),
+        "residual_norm": round_audit_residual_norm(float(r_global.norm().item())),
         "tokens": agg_tokens,
     }
     logger.info(
@@ -412,7 +413,7 @@ def _audit_one_layer_raw(
         top_vocab_sum = {
             "n_features_summed": len(idx_list),
             "delta_weighted": bool(aggregate_delta_weighted),
-            "residual_norm": float(agg_residual.norm().item()),
+            "residual_norm": round_audit_residual_norm(float(agg_residual.norm().item())),
             "tokens": agg_tokens,
         }
 
