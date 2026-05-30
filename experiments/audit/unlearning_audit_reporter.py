@@ -10,6 +10,7 @@ from experiments.audit.judge_constants import (
     JUDGE_SYSTEM_PROMPT,
 )
 from llm_utils.gemini_client import GeminiClient
+from llm_utils.utils import format_audited_layers
 
 
 class UnlearningAuditReporter:
@@ -212,7 +213,7 @@ class UnlearningAuditReporter:
             JUDGE_SYSTEM_PROMPT,
             "=" * 72, "AUDIT REPORT", "=" * 72,
             f"n_audit_prompts:      {n_prompts}",
-            f"audited_layers:       {layers}",
+            f"audited_layers:       {format_audited_layers(layers)}",
             f"rank_by:              {rank_by}\n",
         ]
 

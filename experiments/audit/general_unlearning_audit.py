@@ -42,7 +42,7 @@ from experiments.audit.text_processing import (
 )
 from llm_utils.local_activation_generator import LocalActivationGenerator
 from llm_utils.model_utils import load_local_model
-from llm_utils.utils import resolve_device, set_seed, sorted_numeric_layer_dirs
+from llm_utils.utils import resolve_device, set_seed, sorted_numeric_layer_dirs, format_audited_layers
 
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
@@ -360,7 +360,7 @@ def _resolve_audit_layer_plan(
     if not layer_pairs:
         raise RuntimeError(f"No layer_* dirs to audit under {snmf_dir}")
     layers = [i for i, _ in layer_pairs]
-    logger.info(f"Auditing layers: {layers}")
+    logger.info(f"Auditing layers: {format_audited_layers(layers)}")
     return snmf_dir, layer_pairs, layers
 
 
