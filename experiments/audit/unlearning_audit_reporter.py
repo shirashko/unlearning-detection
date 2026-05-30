@@ -37,21 +37,20 @@ class UnlearningAuditReporter:
             chunks.append(f"{w}(n={n}, z={z:.2f})")
         return "  ".join(chunks)
 
-    @staticmethod
+@staticmethod
     def _append_layer_summary(parts: List[str], summary: List[Dict[str, Any]]) -> None:
         parts.append("--- Per-layer reconstruction & delta summary ---")
         parts.append(
-            "(residual = || A - Z Y ||_F^2 / || A ||_F^2 ; "
-            "rel_delta and rel_delta_max/mean summarize per-latent fractional change "
-            "in mean peak coefficient, (E[Y_base]-E[Y_cand])/(E[Y_base]+1e-9).)"
+            "(residual = || A - Z Y ||_F^2 / || A ||_F^2, rel_delta = per-latent "
+            "fractional change in mean peak coefficient, "
+            "(E[Y_base]-E[Y_cand])/(E[Y_base]+1e-9).)"
         )
         for row in summary:
             parts.append(
-                f"  L{row['layer']:02d}  residual_base={row['residual_base']:.4f}  "
-                f"residual_candidate={row['residual_candidate']:.4f}  "
-                f"residual_delta={row['residual_delta']:+.4f}  "
-                f"rel_delta_max={row['rel_delta_max']:+.4f}  "
-                f"rel_delta_mean={row['rel_delta_mean']:+.4f}"
+                f"  L{row['layer']:02d} | "
+                f"residual (base / cand): {row['residual_base']:.4f} / {row['residual_candidate']:.4f} | "
+                f"residual Δ: {row['residual_delta']:+.4f} | "
+                f"rel_delta (max / mean): {row['rel_delta_max']:+.4f} / {row['rel_delta_mean']:+.4f}"
             )
         parts.append("")
 
