@@ -157,18 +157,29 @@ class UnlearningAuditReporter:
             return
         parts.append(
             "--- Per-layer AGGREGATE rare-context words (rare/topical vocabulary "
-            "recurring across top-decreased features) ---\n"
+            "recurring across top-decreased features) ---"
         )
-        fmt_rare = UnlearningAuditReporter.format_rare_words
 
+        first = layers_rare[0]
+        n_features = first.get("n_features_pooled")
+        zipf_cutoff = float(first.get("zipf_cutoff", 0.0))
+        n_contexts_values = [row.get("n_contexts") for row in layers_rare]
+        contexts_vary = len(set(n_contexts_values)) > 1
+
+        meta = [f"n_features={n_features}", f"zipf_cutoff={zipf_cutoff:.2f}"]
+        if not contexts_vary:
+            meta.insert(1, f"n_contexts={n_contexts_values[0]}")
+        parts.append(f"  ({', '.join(meta)})")
+        parts.append("")
+
+        fmt_rare = UnlearningAuditReporter.format_rare_words
         for row in layers_rare:
-            words_str = fmt_rare(row.get("words") or [])
-            parts.append(
-                f"  L{int(row['layer']):02d}  (n_features={row.get('n_features_pooled')}, "
-                f"n_contexts={row.get('n_contexts')}, "
-                f"zipf_cutoff={float(row.get('zipf_cutoff', 0.0)):.2f}):"
-            )
-            parts.append("      " + (words_str or "(no rare words above cutoff)"))
+            layer_line = f"  L{int(row['layer']):02d}"
+            if contexts_vary:
+                layer_line += f" (n_contexts={row.get('n_contexts')})"
+            layer_line += ":"
+            parts.append(layer_line)
+            parts.append("      " + (fmt_rare(row.get("words") or []) or "(no rare words above cutoff)"))
         parts.append("")
 
     @staticmethod
