@@ -10,6 +10,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 
 from experiments.audit.config import AuditConfig, audit_config_to_nested_dict
+from experiments.audit.core.metric_format import round_audit_summary_for_export
 
 
 class AuditMetadata(BaseModel):
@@ -149,6 +150,12 @@ def build_audit_summary_report(
     judge_verdict: Dict[str, Any],
     judge_error: Optional[str],
 ) -> AuditSummaryReport:
+    round_audit_summary_for_export(
+        per_layer_summary=per_layer_summary,
+        global_top_features=global_top_features,
+        per_layer_aggregate_vocab=per_layer_aggregate_vocab,
+        global_aggregate_vocab=global_aggregate_vocab,
+    )
     return AuditSummaryReport(
         meta=audit_metadata_from_run(
             cfg,

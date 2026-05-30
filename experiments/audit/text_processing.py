@@ -81,7 +81,12 @@ def rare_word_ranking_from_contexts(
         return []
     scored.sort(reverse=True)
     return [
-        {"word": w, "count": int(c), "zipf": float(-neg_z), "score": float(s)}
+        {
+            "word": w,
+            "count": int(c),
+            "zipf": round_audit_metric(float(-neg_z)),
+            "score": round_audit_metric(float(s)),
+        }
         for s, neg_z, c, w in scored[:top_n]
     ]
 
