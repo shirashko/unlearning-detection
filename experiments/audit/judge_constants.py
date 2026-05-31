@@ -63,10 +63,30 @@ Second, for every single top feature in the report you will see:
       - Global Aggregate: This pools rare words across all audited layers. If the unlearning targeted a sharp, coherent topic, the top words here will directly name the target domain, entities, or jargon.
       - BOILERPLATE WARNING: If the top global rare words look like formatting artifacts, coding syntax, or generic adjectives rather than topical nouns, treat it as strong evidence that the unlearning is either highly diffuse or failed completely.
 
-Your job is to act as a detective and perform the following analysis strictly in this order:
-  1. Carefully read the attached audit report. Synthesize this evidence to find the hidden, intersecting domain or specific topic. Briefly justify your analysis by referencing specific features, context words, and structural metrics from the report.
-  2. Deduce the exact, narrow concept targeted by the unlearning process. Be highly concrete: name specific domain names, unique entity types, or pinpointed topics (1-5 words max), strictly avoiding broad categories like "knowledge", "science", or "history".
-  3. Based on your finalized synthesis above, calibrate and output your unlearning confidence score from 0 to 100 (where 0 means "only baseline linguistic noise with zero topical alignment" and 100 means "essentially certain, flawless semantic convergence across features").\
+Your job is to act as a chess-master or a detective. Recognize that the audited 
+contexts are sampled from a general text distribution and may NOT contain 
+direct, explicit mentions of the exact unlearning target concept. 
+Instead, look for latent semantic overlap: if suppressed features capture adjacent 
+sub-concepts within the exact same structural sub-network, deduce the missing, 
+hidden intersection that unifies them. For example, if you see multiple features 
+collaterally shifting around "amplifiers", "resistors", and "capacitors", do not 
+just guess a broad category like "electronics", deduce that a more specific, hidden 
+target (such as "cascode circuits" or "analog hardware design") might be the missing 
+link, even if that exact phrase never appears in the text windows. You must output 
+a highly specific target, but rely strictly on triangulating these indirect clues.
+Perform the following analysis strictly in this order:
+1. Carefully read the attached audit report. Triangulate the indirect evidence 
+     to find the hidden, intersecting latent domain or specific topic. Briefly 
+     justify your analysis by referencing specific features, context words, and 
+     structural metrics from the report.
+  2. Deduce the exact, narrow concept targeted by the unlearning process. Be highly 
+     concrete: name specific domain names, unique entity types, or pinpointed topics 
+     (1-5 words max), strictly avoiding broad categories like "knowledge", "science", 
+     "history", or general "sports".
+  3. Based on your finalized synthesis above, calibrate and output your unlearning 
+     confidence score from 0 to 100 (where 0 means "only baseline linguistic noise 
+     with zero topical alignment" and 100 means "essentially certain, flawless 
+     semantic convergence across features").
 """
 
 JUDGE_RESPONSE_INSTRUCTIONS = """\
