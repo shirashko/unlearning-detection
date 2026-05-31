@@ -7,7 +7,7 @@
 #   sbatch scripts/audit/run_general_unlearning_audit.sh
 #
 # Overridden behavior (custom config):
-#   AUDIT_CONFIG="configs/audit/gemma22b_wmdp_bio_rmu_general_audit.yaml" \
+#   AUDIT_CONFIG="configs/audit/obsolete/gemma22b_wmdp_bio_rmu_general_audit.yaml" \
 #   sbatch --job-name=audit_custom \
 #          --output=logs/audit_custom_%j.out \
 #          --error=logs/audit_custom_%j.err \
@@ -45,7 +45,7 @@ source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 # 3. Configuration Resolution
 # ------------------------------------------------------------------------------
 # Default fallback to Gemma-2-2B-it RMU audit config if AUDIT_CONFIG is missing.
-DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/rmu/gemma2_2b_it/ancient_rome.yaml"
+DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/rmu/gemma2_2b_it/rel_delta/ancient_rome.yaml"
 CONFIG="${AUDIT_CONFIG:-$DEFAULT_CONFIG}"
 
 echo "[audit] Infrastructure initialization complete."

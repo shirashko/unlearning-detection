@@ -19,7 +19,7 @@
 #   sbatch scripts/audit/run_baseline_unlearning_audit.sh
 #
 # Gemma 0.3B arithmetic (alternate YAML only — set AUDIT_CONFIG):
-#   AUDIT_CONFIG="${REPO_ROOT}/configs/audit/gemma03b_arithmetic_baseline_audit.yaml" \
+#   AUDIT_CONFIG="${REPO_ROOT}/configs/audit/obsolete/gemma03b_arithmetic_baseline_audit.yaml" \
 #   sbatch --job-name=baseline_audit_g03b_arith \
 #          --output=logs/baseline_audit_g03b_%j.out \
 #          --error=logs/baseline_audit_g03b_%j.err \
@@ -56,7 +56,7 @@ source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 # ------------------------------------------------------------------------------
 # 3. Configuration Resolution
 # ------------------------------------------------------------------------------
-DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma22b_wmdp_bio_rmu_general_audit.yaml"
+DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/obsolete/gemma22b_wmdp_bio_rmu_general_audit.yaml"
 CONFIG="${AUDIT_CONFIG:-$DEFAULT_CONFIG}"
 
 # When using the default g22b YAML, write under a baseline-only directory (YAML
