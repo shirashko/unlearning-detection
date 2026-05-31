@@ -1,9 +1,9 @@
 # Default Gemma-2-2B weights: Hugging Face repo id (loaded from HF_HUB_CACHE, see audit_runner_env.sh).
 base_model_path: "${DEFAULT_GEMMA_2_2B_MODEL}"
 candidate_model_path: "/home/morg/students/rashkovits/SNMF-Erasure/unlearned_checkpoints/crisp/google_gemma-2-2b-it/Ancient_Rome"
-snmf_dir: "./outputs/gemma_2_2b_it/data_part1_rank_350"
+snmf_dir: "./outputs/gemma_2_2b_it/rank350/data1/snmf"
 data_path: "./data/general_data_part1.json"
-output_dir: "./outputs/gemma_2_2b_it/data_part1_rank_350_audit_crisp_ancient_rome_abs_rel_delta"
+output_dir: "./outputs/gemma_2_2b_it/rank350/data1/crisp/abs_rel_delta/ancient_rome"
 
 layers: "0-25"
 
