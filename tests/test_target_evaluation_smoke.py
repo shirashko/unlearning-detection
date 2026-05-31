@@ -100,6 +100,8 @@ def test_evaluate_hypothesis_mocked_gemini() -> None:
     assert report["n_api_failures"] == 0
     assert report["balanced_accuracy"] == 1.0
     assert report["auc_roc"] == 1.0
+    assert len(report["samples"]) == 4
+    assert all("text" in row and "prompt" in row for row in report["samples"])
     assert client.generate_text.call_count == 4
 
 

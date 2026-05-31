@@ -21,13 +21,11 @@ from dotenv import load_dotenv
 
 from experiments.audit.config import (
     AuditConfig,
-    JudgeConfig,
     audit_config_to_nested_dict,
     parse_args_to_config,
 )
 from experiments.audit.context_windows import _sample_id_to_spans
-from experiments.audit.unlearning_audit_reporter import UnlearningAuditReporter
-from llm_utils.gemini_client import GeminiClient
+from experiments.audit.judge_runner import invoke_gemini_audit_judge
 from experiments.audit.core.layer_auditor import LayerAuditor
 from experiments.audit.core.metric_format import round_audit_residual_norm
 from experiments.audit.core.projection import SubspaceProjector
@@ -621,66 +619,6 @@ def _assemble_judge_prompt_context(
     )
 
 
-def _invoke_gemini_audit_judge(
-    judge_cfg: JudgeConfig,
-    judge_prompt: str,
-    out_dir: Path,
-    logger: logging.Logger,
-) -> Tuple[Dict[str, Any], Optional[str]]:
-    """
-    Evaluate the packaged audit prompt with the configured Gemini judge.
-
-    Do not call when ``judge_cfg.skip_judge`` is true.
-
-    Returns ``(judge_verdict, judge_error)``.
-
-    - judge_verdict is {} only when the client cannot be constructed
-      (e.g. missing API key).
-    - On HTTP/empty-response or JSON parse failure, judge_verdict may be a
-      non-empty dict with _parse_error (and optionally _raw_text).
-    - On success, judge_verdict is the parsed verdict JSON and
-      judge_error is None.
-    """
-    judge_verdict: Dict[str, Any] = {}
-    judge_error: Optional[str] = None
-
-    try:
-        client = GeminiClient(
-            model=judge_cfg.judge_model,
-            temperature=judge_cfg.judge_temperature,
-            max_output_tokens=judge_cfg.judge_max_output_tokens,
-            api_key_env=judge_cfg.judge_api_key_env,
-        )
-        reporter = UnlearningAuditReporter(client)
-    except ValueError as e:
-        judge_error = str(e)
-        logger.warning(f"Judge call failed: {judge_error}")
-        (out_dir / "judge_response_raw.txt").write_text("", encoding="utf-8")
-        return judge_verdict, judge_error
-
-    logger.info(f"Calling judge model: {client.model}")
-
-    judge_verdict, raw_text, judge_error, finish_reason = reporter.run_prompt(
-        judge_prompt,
-    )
-    (out_dir / "judge_response_raw.txt").write_text(raw_text or "", encoding="utf-8")
-    if finish_reason:
-        lvl = logger.warning if finish_reason == "MAX_TOKENS" else logger.info
-        lvl("Judge finished with reason: %s", finish_reason)
-    if judge_error:
-        logger.warning(f"Judge call failed: {judge_error}")
-    elif judge_verdict.get("_parse_error"):
-        judge_error = str(judge_verdict.get("_parse_error", "parse error"))
-        logger.warning(f"Judge parse failed: {judge_error}")
-    else:
-        logger.info(
-            "Judge verdict: confidence=%s | concept=%r",
-            judge_verdict.get("unlearning_confidence"),
-            judge_verdict.get("likely_unlearned_concept"),
-        )
-    return judge_verdict, judge_error
-
-
 def _emit_audit_run_summary_logs(
     logger: logging.Logger,
     *,
@@ -826,7 +764,7 @@ def run_audit(cfg: AuditConfig) -> None:
         logger.info("--skip-judge set; not calling the LLM judge.")
         judge_error = "skipped (--skip-judge)"
     else:
-        judge_verdict, judge_error = _invoke_gemini_audit_judge(
+        judge_verdict, judge_error = invoke_gemini_audit_judge(
             cfg.judge, judge_prompt, out_dir, logger,
         )
 

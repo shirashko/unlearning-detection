@@ -56,13 +56,13 @@ from experiments.audit.general_unlearning_audit import (
     _build_per_layer_metrics_rows,
     _collect_activations,
     _collect_aligned_dual_model_activations,
-    _invoke_gemini_audit_judge,
     _is_vocab_logit_lens_enabled,
     _load_prompts,
     _resolve_context_rare_word_top_n,
     _emit_audit_run_summary_logs,
     setup_logger,
 )
+from experiments.audit.judge_runner import invoke_gemini_audit_judge
 from experiments.audit.unlearning_audit_reporter import UnlearningAuditReporter
 from experiments.audit.logit_lens import LogitLens
 from experiments.audit.summary_report import build_audit_summary_report
@@ -704,7 +704,7 @@ def run_baseline_audit(
         logger.info("--skip-judge set; not calling the LLM judge.")
         judge_error = "skipped (--skip-judge)"
     else:
-        judge_verdict, judge_error = _invoke_gemini_audit_judge(
+        judge_verdict, judge_error = invoke_gemini_audit_judge(
             cfg.judge, judge_prompt, out_dir, logger,
         )
 
