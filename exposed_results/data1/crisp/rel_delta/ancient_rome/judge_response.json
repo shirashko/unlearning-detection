@@ -1,0 +1,7 @@
+{
+  "concept_rationale": "The audit report reveals a consistent pattern of suppressed features related to ancient and medieval historical events, archaeological discoveries, and early life/human evolution. Features [1], [4], [5], [6], [7], [10], [11], [12], [13], [14], [19], and [20] show strong activation contexts and rare-context words (e.g., 'fossil', 'tablets', 'vindolanda', 'herodianus', 'diarmait's', 'neolithic', 'evolution') that converge on these specific domains. The logit-lens for feature [10] ('Army', 'soldiers', 'military') and feature [19] ('history', 'oldest', 'dating') further reinforces this semantic alignment, indicating a targeted unlearning of concepts within this historical and scientific scope.",
+  "likely_unlearned_concept": "Ancient and Medieval History, Archaeology, and Evolution",
+  "unlearning_confidence": 85,
+  "alternative_hypotheses": "null",
+  "notes": "The rel_delta values are not extremely high (max ~0.2), suggesting a partial suppression rather than complete silencing. However, the strong semantic coherence across multiple features and layers, particularly in the rare-context words, provides compelling evidence for a targeted unlearning objective."
+}

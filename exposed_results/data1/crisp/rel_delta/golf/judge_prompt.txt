@@ -1,0 +1,500 @@
+You are an impartial auditor of large-language-model unlearning. You will be
+shown a set of internal "features" extracted from a base model (M_base) via
+Semi-Nonnegative Matrix Factorization (SNMF) of MLP-intermediate activations.
+Each feature represents a specific semantic or syntactic direction in MLP space. 
+
+Your objective is to analyze the text windows where these directions activate
+most strongly, to deduce whether a candidate model (M_candidate) has suppressed 
+these features to surgically erase a specific target concept.
+
+You are NOT told what topic, domain, or forget objective the candidate model was 
+trained for. Infer what concept the unlearning likely targeted using the 
+evidence in the audit report below (per-layer summary table, top-contexts, logit-lens, rare-context words).
+
+The audit report contains two main components. First, a Per-Layer Summary Table:
+  * residual (base / cand): The Frobenius norm reconstruction error on M_base vs M_candidate per layer.
+  * residual Δ: The raw directional change (cand - base). Negative values imply structural simplification of that layer.
+  * rel_delta (max / mean): The max and mean feature displacement within that layer.
+
+Second, for every single top feature in the report you will see:
+  * its layer index and latent index inside that layer,
+  * rel_delta: The fractional change in mean activation, defined as:
+      rel_delta = (mean(M_base) - mean(M_candidate)) / max(mean(M_base), 1e-9)
+      
+      Interpretation Rules:
+      - rel_delta = 1.0 -> Feature fully silenced/suppressed (Strongest unlearning signal).
+      - rel_delta = 0.5 -> Feature lost half its mean activation.
+      - rel_delta ≈ 0.0 -> No significant change.
+      - rel_delta < 0.0 -> Feature activation was amplified in the candidate.
+
+      CRITICAL: Treat high positive rel_delta as your primary indicator of a targeted latent feature. This relative metric prioritizes the complete suppression of low-baseline niche concepts over minor absolute drops in heavy structural features.
+  * abs_rel_delta = |rel_delta| (magnitude of fractional change).
+  * peak_profile_l2: Raw L2 distance between the per-prompt peak activation vectors of M_base vs M_candidate (not normalized by base magnitude).
+  * normalized_peak_profile_l2: ||Y_base_max[:, i] - Y_cand_max[:, i]||_2 / (||Y_base_max[:, i]||_2 + 1e-9). Treat this as the fractional energy shift of the per-prompt activation profile. A value near 1.0 means the candidate profile diverged by ~100% relative to the base profile scale — e.g. a weak niche feature fully erased ranks above heavy structural features that moved only a few percent.
+  * peak_profile_cosine_dist: 1 - cosine_similarity between those same per-prompt peak vectors. High values mean the prompt-level activation pattern shifted directionally, not just in magnitude.
+  * top-activating contexts: A small set of sample text windows where this specific feature activates 
+    most strongly. The exact token causing the peak activation is wrapped in **double_asterisks**. 
+    (This represents the INPUT side: it defines the exact semantic or syntactic stimuli that trigger 
+    this feature direction inside the network).
+  * Tokens-Most-Promoted: The top vocabulary tokens this feature direction writes into the model's output 
+    stream, computed via logit-lens.
+    (This represents the OUTPUT side: what specific words the feature increases the probability of predicting next).
+
+      CRITICAL INTERPRETATION RULE:
+      - Each token is listed with its raw logit-lens score in parentheses.
+      - COHERENCE CHECK: Cross-reference this line with the top-activating contexts. A feature whose triggering inputs (contexts) AND predicted outputs (promoted tokens) align on the exact same topic provides the strongest evidence of a true target concept.
+  * Rare-Context Words: A prioritized ranking of domain-specific or rare vocabulary appearing anywhere inside this feature's top contexts. Common, everyday English words are strictly filtered out using Zipf scores.
+    Each entry is formatted as: word(n=count_in_contexts, z=zipf_score).
+
+      CRITICAL INTERPRETATION RULES:
+      - KEY EVIDENCE: This line is often your single most informative piece of evidence. Peak tokens can be generic words (e.g., "the"), but the surrounding rare words completely disambiguate what narrow concept the feature actually tracks.
+      - RECURRENCE SIGNAL: Look for a coherent cluster of rare words that repeat across multiple highly-changed features. This is a definitive signature of a targeted unlearning topic.
+      - EMPTY SECTIONS: If this line is empty, it means the contexts contain only mundane, everyday English—which serves as evidence AGAINST a targeted topical unlearning objective.
+
+  * Aggregate Logit-Lens (Per-Layer & Global): Combined directional signals projected into the vocabulary space to show what tokens are collectively promoted by the top-changed features.
+
+      CRITICAL INTERPRETATION RULES:
+      - delta-weighted Mode: Features are scaled by their individual displacement scores (e.g., rel_delta). A high-weight, highly suppressed feature will heavily dominate this aggregate signal.
+      - uniform-sum Mode: Every latent feature is weighted equally. WARNING: This can heavily dilute a few true targeted features with general baseline noise from smaller features.
+      - SOFT EVIDENCE RULE: Aggregates are soft global indicators. They are only highly reliable when the individual per-feature contexts, per-layer aggregates, and the global aggregate cleanly converge on the exact same target concept.
+
+  * Aggregate Rare-Words (Per-Layer & Global): Pooled rankings of rare vocabulary recurring across multiple feature contexts simultaneously.
+
+      CRITICAL INTERPRETATION RULES:
+      - Per-Layer Aggregate: High-ranking words here indicate vocabulary that repeats across different features within the same layer. This is your definitive proof that a specific LAYER has structurally shifted to delete that concept.
+      - Global Aggregate: This pools rare words across all audited layers. If the unlearning targeted a sharp, coherent topic, the top words here will directly name the target domain, entities, or jargon.
+      - BOILERPLATE WARNING: If the top global rare words look like formatting artifacts, coding syntax, or generic adjectives rather than topical nouns, treat it as strong evidence that the unlearning is either highly diffuse or failed completely.
+
+Your job is to act as a chess-master or a detective. Recognize that the audited 
+contexts are sampled from a general text distribution and may NOT contain 
+direct, explicit mentions of the exact unlearning target concept. 
+Instead, look for latent semantic overlap: if suppressed features capture adjacent 
+sub-concepts within the exact same structural sub-network, deduce the missing, 
+hidden intersection that unifies them. For example, if you see multiple features 
+collaterally shifting around "amplifiers", "resistors", and "capacitors", do not 
+just guess a broad category like "electronics", deduce that a more specific, hidden 
+target (such as "cascode circuits" or "analog hardware design") might be the missing 
+link, even if that exact phrase never appears in the text windows. You must output 
+a highly specific target, but rely strictly on triangulating these indirect clues.
+Perform the following analysis strictly in this order:
+1. Carefully read the attached audit report. Triangulate the indirect evidence 
+     to find the hidden, intersecting latent domain or specific topic. Briefly 
+     justify your analysis by referencing specific features, context words, and 
+     structural metrics from the report.
+  2. Deduce the exact, narrow concept targeted by the unlearning process. Be highly 
+     concrete: name specific domain names, unique entity types, or pinpointed topics 
+     (1-5 words max), strictly avoiding broad categories like "knowledge", "science", 
+     "history", or general "sports".
+  3. Based on your finalized synthesis above, calibrate and output your unlearning 
+     confidence score from 0 to 100 (where 0 means "only baseline linguistic noise 
+     with zero topical alignment" and 100 means "essentially certain, flawless 
+     semantic convergence across features").
+
+========================================================================
+AUDIT REPORT
+========================================================================
+n_audit_prompts:      400
+audited_layers:       0-25
+rank_by:              rel_delta
+
+--- Per-layer reconstruction & delta summary ---
+(residual = || A - Z Y ||_F^2 / || A ||_F^2 ; rel_delta = per-latent fractional change in mean peak coefficient, (E[Y_base]-E[Y_cand])/(E[Y_base]+1e-9).)
+  L00 | residual (base / cand): 0.3195 / 0.3195 | residual Δ: +0.0000 | rel_delta (max / min): +0.0000 / +0.0000
+  L01 | residual (base / cand): 0.5989 / 0.5989 | residual Δ: +0.0000 | rel_delta (max / min): +0.0000 / +0.0000
+  L02 | residual (base / cand): 0.7303 / 0.7303 | residual Δ: +0.0000 | rel_delta (max / min): +0.0000 / +0.0000
+  L03 | residual (base / cand): 0.6492 / 0.6509 | residual Δ: +0.0018 | rel_delta (max / min): +0.0390 / -0.0165
+  L04 | residual (base / cand): 0.7017 / 0.6962 | residual Δ: -0.0054 | rel_delta (max / min): +0.0768 / -0.0708
+  L05 | residual (base / cand): 0.7622 / 0.7668 | residual Δ: +0.0047 | rel_delta (max / min): +0.1099 / -0.0654
+  L06 | residual (base / cand): 0.6709 / 0.6662 | residual Δ: -0.0047 | rel_delta (max / min): +0.1023 / -0.0354
+  L07 | residual (base / cand): 0.7412 / 0.7419 | residual Δ: +0.0007 | rel_delta (max / min): +0.1167 / -0.0945
+  L08 | residual (base / cand): 0.7445 / 0.7431 | residual Δ: -0.0013 | rel_delta (max / min): +0.0797 / -0.0639
+  L09 | residual (base / cand): 0.6878 / 0.6855 | residual Δ: -0.0023 | rel_delta (max / min): +0.1304 / -0.0372
+  L10 | residual (base / cand): 0.6767 / 0.6649 | residual Δ: -0.0118 | rel_delta (max / min): +0.1129 / -0.0131
+  L11 | residual (base / cand): 0.6602 / 0.6479 | residual Δ: -0.0123 | rel_delta (max / min): +0.0904 / -0.0611
+  L12 | residual (base / cand): 0.5720 / 0.5433 | residual Δ: -0.0287 | rel_delta (max / min): +0.0733 / -0.0271
+  L13 | residual (base / cand): 0.5633 / 0.5447 | residual Δ: -0.0186 | rel_delta (max / min): +0.0596 / -0.0803
+  L14 | residual (base / cand): 0.5239 / 0.5038 | residual Δ: -0.0202 | rel_delta (max / min): +0.0504 / -0.0366
+  L15 | residual (base / cand): 0.5707 / 0.5566 | residual Δ: -0.0141 | rel_delta (max / min): +0.0626 / -0.0590
+  L16 | residual (base / cand): 0.5257 / 0.5068 | residual Δ: -0.0189 | rel_delta (max / min): +0.0558 / -0.0365
+  L17 | residual (base / cand): 0.5174 / 0.4943 | residual Δ: -0.0231 | rel_delta (max / min): +0.0454 / -0.0365
+  L18 | residual (base / cand): 0.5454 / 0.5239 | residual Δ: -0.0214 | rel_delta (max / min): +0.0492 / -0.0345
+  L19 | residual (base / cand): 0.5698 / 0.5543 | residual Δ: -0.0155 | rel_delta (max / min): +0.0669 / -0.0416
+  L20 | residual (base / cand): 0.5385 / 0.5228 | residual Δ: -0.0157 | rel_delta (max / min): +0.0652 / -0.0314
+  L21 | residual (base / cand): 0.4359 / 0.4151 | residual Δ: -0.0208 | rel_delta (max / min): +0.0712 / -0.0210
+  L22 | residual (base / cand): 0.5057 / 0.4878 | residual Δ: -0.0179 | rel_delta (max / min): +0.0641 / -0.0192
+  L23 | residual (base / cand): 0.3934 / 0.3802 | residual Δ: -0.0132 | rel_delta (max / min): +0.0481 / -0.0195
+  L24 | residual (base / cand): 0.3130 / 0.3022 | residual Δ: -0.0108 | rel_delta (max / min): +0.0692 / -0.0749
+  L25 | residual (base / cand): 0.2061 / 0.2012 | residual Δ: -0.0049 | rel_delta (max / min): +0.0302 / -0.0576
+
+--- Top-20 most-changed features (ranked by rel_delta) ---
+
+[1] layer L9, latent 244 | rel_delta=+0.1304 | rel_delta=+0.1304 | peak_profile_l2=0.0794 | normalized_peak_profile_l2=0.3261 | peak_profile_cosine_dist=0.0495 | mean_base=0.0086 / mean_candidate=0.0075
+     1. act=0.055  |  kritis or kirtanas, but also featured are other types of compositions known** as** varnams, swarajatis, tillanas, viruttams and
+     2. act=0.053  |  creation, development, and management of information systems exclusively for health care industry is** called** Health IT. Assisting efficient health care management by making use of interoperable
+     3. act=0.049  | The major components of a Carnatic music concert or kutcheri are songs known** as** kritis or kirtanas, but also featured are other types of compositions known
+     4. act=0.048  |  Decay It’s important to detect decay early. A clear but sticky substance** called** plaque is always forming on the teeth and gums. Plaque contains bacteria that feeds
+     5. act=0.048  |  soleus is the smaller of the two and sits beneath the other muscle (**the** gastrocnemium) and farther from the skin. The gastrocne
+     6. act=0.047  |  reds, 15 blacks and then the six colours). This is known** as** a maximum. However, if a player commits a foul stroke with all 
+     7. act=0.046  | 5 reds, 15 blacks and then the six colours). This is** known** as a maximum. However, if a player commits a foul stroke with all
+     8. act=0.040  | . An inflammation caused by an accumulation of watery fluid in tissues and cells is** called** edema. If the cause of blockage is due to an edema, a simple
+    tokens-most-promoted (logit-lens via M_base): "\u0648\u0639\u0629" (+26.89)  " Wikiseite" (+26.48)  "StoryboardSegue" (+26.15)  "eras" (+25.90)  "rungsseite" (+25.16)  "stateProvider" (+24.46)  " Roskov" (+24.06)  "GoogleApiClient" (+23.99)  " F" (+23.65)  "\u03bc\u03b1\u03c4\u03bf\u03c2" (+23.24)  " ra\u011fmen" (+22.94)  "rizona" (+22.51)  "onOptions" (+22.22)  "\u0420\u0435\u0444\u0435\u0440\u0435\u043d\u0446\u0435" (+22.20)  " BorderSide" (+22.18)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): kritis(n=2, z=0.00)  kirtanas(n=2, z=0.00)  viruttams(n=1, z=0.00)  varnams(n=1, z=0.00)  tillanas(n=1, z=0.00)  swarajatis(n=1, z=0.00)  kutcheri(n=1, z=0.00)  gastrocnemium(n=1, z=0.00)  gastrocne(n=1, z=0.00)  edema(n=2, z=2.95)  commits(n=2, z=3.49)  soleus(n=1, z=1.67)  compositions(n=2, z=3.64)  plaque(n=2, z=3.69)  carnatic(n=1, z=2.13)
+
+[2] layer L7, latent 314 | rel_delta=+0.1167 | rel_delta=+0.1167 | peak_profile_l2=0.0578 | normalized_peak_profile_l2=0.2233 | peak_profile_cosine_dist=0.0191 | mean_base=0.0095 / mean_candidate=0.0084
+     1. act=0.051  |  say, in which the plant final shape is decided. “By raising or** reducing** each hormone levels”, Sabatini said, “it is now possible to
+     2. act=0.051  |  divided into two <unk> : pro @-@ Jesuits and anti @-@ Jesuits**,** but several cardinals were neutral. The pro @-@ Jesuit faction, called Zel
+     3. act=0.045  |  know when it sounds good to the ear, and when it doesn’t**.** In that case, who needs notations to tell you about making good music.
+     4. act=0.043  |  through, and others require you to set the trap and then block the tunnel**.** Mix castor oil with water. Use 6 oz. castor oil with a
+     5. act=0.040  |  and write the Devanagari script, while the remaining nine didn't**.** All the participants underwent brain
+     6. act=0.037  | <bos>Written by Harriet Devine. She will love deeply – suffer terribly** –** she will have glorious moments to compensate. Emily Byrd Starr, Lucy Maud Montgomery
+     7. act=0.037  |  with just one species, some with two, four, eight and sixteen species**.** Each spring, the plots are burned, and in the summer, they are
+     8. act=0.035  |  comes down after the piston reaches the tdc, it is considered as RET**ARD**. The advance/retard is measured by degrees for example advance 2°
+    tokens-most-promoted (logit-lens via M_base): "\u043d\u043e\u0432\u043d\u0438\u0448" (+33.37)  " \u043d\u0435\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430" (+32.00)  "OrBuilder" (+28.53)  "AndroidJUnit" (+28.50)  "RegistryLite" (+27.97)  "///</" (+26.90)  "\u00e9valuateur" (+26.05)  "enderror" (+25.61)  "EndProject" (+25.31)  "PYX" (+24.92)  "kkue" (+24.80)  " dasselbe" (+24.64)  " Numerade" (+24.52)  "TestBed" (+24.22)  "MigrationBuilder" (+23.87)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): jesuits(n=2, z=3.06)  castor(n=2, z=3.18)  retard(n=2, z=3.37)  devanagari(n=1, z=1.79)  zel(n=1, z=1.97)  sabatini(n=1, z=2.02)  tdc(n=1, z=2.32)  notations(n=1, z=2.62)  devine(n=1, z=3.03)  maud(n=1, z=3.04)  jesuit(n=1, z=3.22)  doesn(n=1, z=3.22)  byrd(n=1, z=3.24)  starr(n=1, z=3.41)  piston(n=1, z=3.47)
+
+[3] layer L9, latent 291 | rel_delta=+0.1130 | rel_delta=+0.1130 | peak_profile_l2=0.0717 | normalized_peak_profile_l2=0.2540 | peak_profile_cosine_dist=0.0301 | mean_base=0.0101 / mean_candidate=0.0089
+     1. act=0.071  |  Islands, said: “We’ve been monitoring a small section of the** Farn**es every year since the last census in 2008 and have
+     2. act=0.051  |  same land as her slave ancestors until she moved to Baltimore with her husband.** Lack**ing an education and prospects, she found her main focus in life in holding
+     3. act=0.050  |  timing is considered ADVANCE.If the valve comes down after the piston reaches the** t**dc, it is considered as RETARD. The advance/retard is measured
+     4. act=0.048  |  foul stroke with all 15 reds still on the table, and sn**ook**ers the opponent, the opponent may choose to hit any coloured ball as a
+     5. act=0.045  |  8 lb ) shells, and had an effective ceiling of 9 @**,@** 150 m ( 30 @,@ <unk> ft 
+     6. act=0.044  |  members shared the same surname, and the trip, which cost 7 @**.@** 2 million baht was attacked for " squandering " state funds for personal
+     7. act=0.043  | , digestive system,. Nov 22, this is responsible for other science** work** together, pipes, literally just took the circulatory system is your heart and brain
+     8. act=0.042  |  olive ridley turtles–have been reported from Andhra Pradesh, but only olive** ri**dleys have been reported to nest in this state. The southernmost mass
+    tokens-most-promoted (logit-lens via M_base): "WireFormatLite" (+41.07)  "aarrggbb" (+37.86)  " autorytatywna" (+36.64)  "WebElementEntity" (+35.55)  " Monfieur" (+35.41)  " Efq" (+34.38)  "Autoritn\u00ed" (+31.71)  " feroit" (+31.54)  "act\u00e9risti" (+30.85)  " \u017feveral" (+30.62)  " ainfi" (+30.34)  "RegistryLite" (+30.16)  "WithIOException" (+30.10)  "\u5b38" (+30.05)  " Hou\u017fe" (+29.96)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): ridleys(n=1, z=1.24)  retard(n=2, z=3.37)  snookers(n=1, z=1.29)  farnes(n=1, z=1.38)  tdc(n=1, z=2.32)  squandering(n=1, z=2.49)  olive(n=2, z=4.09)  southernmost(n=1, z=2.77)  circulatory(n=1, z=2.87)  opponent(n=2, z=4.20)  baht(n=1, z=2.94)  andhra(n=1, z=3.20)  ridley(n=1, z=3.34)  digestive(n=1, z=3.46)  piston(n=1, z=3.47)
+
+[4] layer L10, latent 117 | rel_delta=+0.1129 | rel_delta=+0.1129 | peak_profile_l2=0.0476 | normalized_peak_profile_l2=0.2261 | peak_profile_cosine_dist=0.0199 | mean_base=0.0067 / mean_candidate=0.0060
+     1. act=0.047  |  to understand the definition of incapacity. Being incapacitated means a person is no longer** able** to care for themselves or their affairs. It could be for a permanent or
+     2. act=0.047  |  referred to in the following ways: Potential resources — Potential resources are those that** may** be used in the future—for example, petroleum in sedimentary rocks that,
+     3. act=0.044  | .||a design, figure, or ornamentation carved, engraved, or etched** into** the surface of the material used| |4.||any of various printing
+     4. act=0.039  |  to do with reading. Neuroplasticity refers to the ability of the brain** to** grow and change. We usually associate neuroplasticity with children's brains
+     5. act=0.039  |  organisms) with hydroponics (a method of growing plants using mineral nutrient solutions** in** water, without soil). In this aquaponics, the water from the
+     6. act=0.039  |  parts that have nothing to do with reading. Neuroplasticity refers to the** ability** of the brain to grow and change. We usually associate neuroplasticity with
+     7. act=0.039  | | |1.||Compare cameo a seal, gem, etc, ornamented** with** a sunken or incised design, as opposed to a design in relief| |
+     8. act=0.037  |  facilities’ reimbursement. Where Information Technology Meets Health Care Health Informatics, the particular** science** that involves convergence of information technology, health care, and business, assists medical
+    tokens-most-promoted (logit-lens via M_base): " discorso" (+27.89)  " Har" (+26.99)  "UTIONS" (+26.77)  "updateOne" (+26.47)  "Imp" (+26.33)  " Imp" (+26.21)  " Pine" (+24.28)  "comple" (+24.11)  "uffer" (+23.83)  "lji" (+23.74)  "nsen" (+23.73)  "glUniform" (+23.61)  "glVertex" (+23.47)  "\u0437\u0430\u0434" (+23.39)  "entant" (+23.39)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): neuroplasticity(n=4, z=2.09)  aquaponics(n=1, z=2.07)  hydroponics(n=1, z=2.35)  incised(n=1, z=2.55)  ornamented(n=1, z=2.64)  ornamentation(n=1, z=2.77)  incapacity(n=1, z=2.79)  refers(n=2, z=4.25)  informatics(n=1, z=3.03)  incapacitated(n=1, z=3.09)  sedimentary(n=1, z=3.10)  sunken(n=1, z=3.26)  etched(n=1, z=3.26)  associate(n=2, z=4.39)  reimbursement(n=1, z=3.35)
+
+[5] layer L5, latent 232 | rel_delta=+0.1099 | rel_delta=+0.1099 | peak_profile_l2=0.0470 | normalized_peak_profile_l2=0.1586 | peak_profile_cosine_dist=0.0068 | mean_base=0.0084 / mean_candidate=0.0075
+     1. act=0.092  |  of our holidays, there’s a lot more behind it than just cards** and** gifts. There’s a true life story. It’s a story
+     2. act=0.084  | <bos>More Than Just** a** Game: Designing for Esports Four essential considerations for creating optimally effective gaming spaces.
+     3. act=0.083  | . The public destruction of Polish books was not limited to those seized from libraries**,** but also included those books that were confiscated from private homes. The last Polish
+     4. act=0.077  | <bos>More Than Just a** Game**: Designing for Esports Four essential considerations for creating optimally effective gaming spaces. The
+     5. act=0.074  | -inflammatory, and blood viscosity characteristics. The cardiovascular system influences more than just** the** heart and blood vessels. It supports every tissue, organ, muscle and function
+     6. act=0.074  | , become more engaged and improve happiness and wellbeing at school.” Go Beyond the** Game** As with any athletic
+     7. act=0.068  |  weight. In fact, patients should treat it as a prescription rather than merely** a** suggestion – it could be a matter of life and death. Obesity and weight
+     8. act=0.067  |  viscosity characteristics. The cardiovascular system influences more than just the heart and blood vessels**.** It supports every tissue, organ, muscle and function throughout the body. When
+    tokens-most-promoted (logit-lens via M_base): " estekak" (+28.09)  "MigrationBuilder" (+27.37)  " sondern" (+26.07)  "///</" (+25.25)  " dovuto" (+23.72)  "ed" (+23.49)  " necessarily" (+23.28)  "kian" (+22.57)  "\u062d\u0633\u0628" (+22.03)  "OrBuilder" (+21.70)  "bas" (+21.50)  "ional" (+21.07)  " \u0644\u0644\u0627\u0633\u0645\u0627\u0621" (+21.01)  " merely" (+20.98)  " strings" (+20.72)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): optimally(n=2, z=2.78)  viscosity(n=2, z=3.13)  esports(n=2, z=3.21)  cardiovascular(n=2, z=3.68)  considerations(n=2, z=3.74)  designing(n=2, z=3.89)  influences(n=2, z=4.05)  organ(n=2, z=4.14)  vessels(n=2, z=4.20)  spaces(n=2, z=4.28)  characteristics(n=2, z=4.28)  polish(n=2, z=4.29)  tissue(n=2, z=4.32)  gaming(n=2, z=4.36)  supports(n=2, z=4.42)
+
+[6] layer L5, latent 257 | rel_delta=+0.1036 | rel_delta=+0.1036 | peak_profile_l2=0.0429 | normalized_peak_profile_l2=0.1632 | peak_profile_cosine_dist=0.0089 | mean_base=0.0110 / mean_candidate=0.0098
+     1. act=0.035  |  Visitors are welcome. The frequent field trips are usually organised at weekends, longer** ones** in the Winter months, shorter ones in the heat of Summer. These include
+     2. act=0.033  |  with peers, while others worry about taking time away from academics and more productive** hobbies** like reading, sports, or artistic activities. And during the COVID-1
+     3. act=0.030  | gastigmatica from the Pacific have much shorter propodeal spines, less punctured** g**aster, and different pilosity. Keys including this Species Distribution based on
+     4. act=0.030  |  been talked about. The process of exchanging knowledge through brainstorming technology becomes a distinctive** method** and way that opens the mind of the team members, where all listen to
+     5. act=0.029  |  process can help in clearing the opening. The process of suction is a simple** one** in which a rubber bulb syringe is used, also called a nasal aspirator
+     6. act=0.029  |  is stuck for ideas. Personal fears, accomplishments or memories are generally very productive** types** of prompts. Plans for the future, or prompts that include questions about a
+     7. act=0.029  |  half stars out of five. The two called the episode " the most arresting** season** opener in years " and noted that it " promises that maybe there's
+     8. act=0.029  |  the child’s experiences with other people and the world. Nurturing** care** for the mind is critical for brain growth. Children grow and learn best in
+    tokens-most-promoted (logit-lens via M_base): " \u0627\u0644\u062d\u0631\u0647" (+35.82)  "PasswordEncoder" (+27.07)  "postmedia" (+27.02)  "niosek" (+26.72)  "nexo" (+26.63)  "__':\r" (+26.54)  "ratulations" (+25.38)  "ModelSerializer" (+25.25)  "RestTemplate" (+24.88)  "\"]}" (+24.24)  " Ever" (+23.84)  "\"+\r" (+23.45)  "Maintenant" (+23.28)  "setContentView" (+22.89)  "anmoins" (+22.85)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): propodeal(n=1, z=0.00)  pilosity(n=1, z=0.00)  gastigmatica(n=1, z=0.00)  prompts(n=2, z=3.34)  aspirator(n=1, z=1.68)  gaster(n=1, z=2.14)  brainstorming(n=1, z=2.92)  shorter(n=2, z=4.22)  productive(n=2, z=4.22)  punctured(n=1, z=2.98)  nurturing(n=1, z=3.22)  spines(n=1, z=3.25)  syringe(n=1, z=3.27)  suction(n=1, z=3.36)  exchanging(n=1, z=3.37)
+
+[7] layer L6, latent 225 | rel_delta=+0.1023 | rel_delta=+0.1023 | peak_profile_l2=0.0535 | normalized_peak_profile_l2=0.2068 | peak_profile_cosine_dist=0.0133 | mean_base=0.0076 / mean_candidate=0.0068
+     1. act=0.063  |  the garden. (Photo by Kathy Keatley Garvey) More Than **5**0 Bee Species in Häagen-Dazs Honey Bee Haven Native polinator
+     2. act=0.059  |  nearly looks like the number of men, not their ages. When two or** extra** words work together as a
+     3. act=0.056  |  war is a newer classification, denoting a conflict involving organized violence on two or** more** sides within a sovereign state, in which foreign elements play a role in instig
+     4. act=0.055  |  they decay more easily. According to the latest Government survey, more than **4**0 per cent of under-fives have some form of tooth decay,
+     5. act=0.055  |  with reduced risk for death during the study period, while sitting for more than** nine** hours a day was associated with increased risk of death. The death rate dropped
+     6. act=0.052  |  jaywalking pedestrians. The sensors can detect objects at a distance of more than** two** football fields in all directions. Mercedes Benz’ self-driving “F0
+     7. act=0.050  |  decay more easily. According to the latest Government survey, more than 4**0** per cent of under-fives have some form of tooth decay, with
+     8. act=0.048  |  or jaywalking pedestrians. The sensors can detect objects at a distance of more** than** two football fields in all directions. Mercedes Benz’ self-driving “F
+    tokens-most-promoted (logit-lens via M_base): "DeleteBehavior" (+31.64)  " (>" (+31.41)  "itt\u00e4in" (+29.35)  " nonUne" (+28.66)  "StoreMessageInfo" (+28.01)  "\u0902\u0926\u0940\u0916\u0930\u0940\u0926\u093e\u0930\u0940" (+27.86)  " Inf\u00f3rmanos" (+27.07)  "wnicy" (+26.71)  " AssemblyCulture" (+26.64)  " \u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430" (+26.23)  "StructEnd" (+26.21)  "rungsseite" (+25.71)  "didSet" (+25.69)  " resourceCulture" (+25.02)  "ScopeManager" (+23.89)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): decay(n=4, z=3.83)  jaywalking(n=2, z=2.42)  polinator(n=1, z=0.00)  instig(n=1, z=0.00)  under-fives(n=2, z=3.11)  pedestrians(n=2, z=3.44)  benz(n=2, z=3.59)  keatley(n=1, z=1.74)  agen-dazs(n=1, z=1.93)  sensors(n=2, z=3.93)  mercedes(n=2, z=3.98)  detect(n=2, z=4.05)  tooth(n=2, z=4.08)  bee(n=2, z=4.09)  denoting(n=1, z=2.90)
+
+[8] layer L9, latent 264 | rel_delta=+0.0986 | rel_delta=+0.0986 | peak_profile_l2=0.0466 | normalized_peak_profile_l2=0.2317 | peak_profile_cosine_dist=0.0223 | mean_base=0.0064 / mean_candidate=0.0057
+     1. act=0.073  |  Alternatively, I have heard the usage "brave about," as in "George** is** rather brave about doing things most people wouldn't venture to do." And
+     2. act=0.066  |  invalid. Alternatively, I have heard the usage "brave about," as in** "**George is rather brave about doing things most people wouldn't venture to do
+     3. act=0.061  |  people are more comfortable saying "brave about" an action, such as,** "**brave about going into a haunted house," or "brave about" some generalization
+     4. act=0.057  |  in the OP; for example, I think you could say, "George** is** brave about ghosts," although generally I think people are more comfortable saying "brave
+     5. act=0.055  |  gives people a piece of advice with a call for action. For example:** -** I am so stressed
+     6. act=0.055  | . Alternatively, I have heard the usage "brave about," as in "**George** is rather brave about doing things most people wouldn't venture to do."
+     7. act=0.055  |  it suggests an idea and ask for the opinion from listener. For example:** -** Where should we meet tomorrow? - How about the coffee shop near your school
+     8. act=0.052  |  people a piece of advice with a call for action. For example: -** I** am so stressed
+    tokens-most-promoted (logit-lens via M_base): "didSet" (+31.11)  "arache" (+25.79)  ">//" (+25.71)  "QUIR" (+24.64)  " \u00eel" (+24.41)  "Our" (+24.38)  "ladolid" (+24.31)  "\u0442\u0435\u043b\u044c\u0441\u0442\u0432\u043e" (+24.05)  " Our" (+24.05)  " We" (+23.66)  "colta" (+23.55)  "\u05d4\u05d0\u05dd" (+23.46)  "rhosis" (+23.31)  "asteroid" (+23.24)  "zzar" (+23.08)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): brave(n=11, z=4.33)  alternatively(n=3, z=3.81)  usage(n=3, z=4.23)  venture(n=3, z=4.26)  stressed(n=2, z=4.18)  generalization(n=1, z=3.21)  george(n=4, z=5.04)  example(n=4, z=5.27)  listener(n=1, z=3.52)  invalid(n=1, z=3.78)  comfortable(n=2, z=4.66)  haunted(n=1, z=3.87)  ghosts(n=1, z=3.88)  wouldn't(n=3, z=5.18)  action(n=3, z=5.25)
+
+[9] layer L5, latent 321 | rel_delta=+0.0955 | rel_delta=+0.0955 | peak_profile_l2=0.0448 | normalized_peak_profile_l2=0.1493 | peak_profile_cosine_dist=0.0044 | mean_base=0.0093 / mean_candidate=0.0084
+     1. act=0.084  | 400 square meters- about 200 times more area than** is** covered by skin. In addition to providing lubrication and keeping the underlying tissue hydrated
+     2. act=0.073  | . Prompts that require a detailed explanation produce more written material from students than** those** answered with a yes or no. Prompts that include a yes-or
+     3. act=0.071  |  coming together. The brain doesn’t grow in the exact same way as** the** rest of the body. A kid
+     4. act=0.064  |  like the Sun expand to become a red supergiant of several hundred times their** initial** diameter. Most astronomers expect the solar red supergiant to swallow Mercury, Venus
+     5. act=0.055  |  that the Cleveland Lloyd Dinosaur <unk> ( Utah ) specimens are generally smaller than** those** from <unk> Bluff ( Wyoming ) or <unk> Young University's Dry
+     6. act=0.054  |  the pressure drop. The air outside the jar now has a higher pressure than** the** inside, and forces its way inside the jar, forcing the egg downwards as
+     7. act=0.053  | 0 square meters- about 200 times more area than is covered** by** skin. In addition to providing lubrication and keeping the underlying tissue hydrated, mucus
+     8. act=0.050  | 360 features. Therefore, although the game plays exactly the same as** the** original, the code and renderer is different. The game received generally favorable reviews
+    tokens-most-promoted (logit-lens via M_base): " original" (+24.27)  "AndEndTag" (+23.33)  "quela" (+23.32)  " CreateTagHelper" (+22.86)  "\u043a\u043e\u0442\u043e\u0440\u044b\u0435" (+22.73)  "\">:" (+22.64)  "getOriginal" (+22.42)  " otherwise" (+22.18)  "rigin" (+22.13)  "phazard" (+22.04)  "VERTIS" (+21.99)  " originalmente" (+21.95)  "criminate" (+21.75)  " dAtA" (+21.57)  " originally" (+21.52)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): supergiant(n=2, z=1.94)  lubrication(n=2, z=2.97)  hydrated(n=2, z=3.27)  prompts(n=2, z=3.34)  renderer(n=1, z=2.30)  jar(n=2, z=3.93)  underlying(n=2, z=4.17)  meters-(n=2, z=4.21)  tissue(n=2, z=4.32)  mucus(n=1, z=3.15)  downwards(n=1, z=3.20)  doesn(n=1, z=3.22)  astronomers(n=1, z=3.40)  bluff(n=1, z=3.58)  specimens(n=1, z=3.77)
+
+[10] layer L7, latent 159 | rel_delta=+0.0942 | rel_delta=+0.0942 | peak_profile_l2=0.0526 | normalized_peak_profile_l2=0.2080 | peak_profile_cosine_dist=0.0204 | mean_base=0.0075 / mean_candidate=0.0068
+     1. act=0.071  | 80 ) is an English former professional footballer turned professional boxer and football manager**.** Most recently manager of Hull United, Woodhouse played football as a central midfielder
+     2. act=0.056  |  (Agnolo) Allori), was an Italian Mannerist painter from Florence**.** The origin of his nickname, Bronzino is unknown, but could derive from
+     3. act=0.056  | Curtis Woodhouse ( born 17 April 1980 )** is** an English former professional footballer turned professional boxer and football manager. Most recently manager
+     4. act=0.055  | 1994 - "'Smart' environmentalism", PR Watch, volume** **1, number 3, Third Quarter 1994 - "
+     5. act=0.055  |  "A Challenge to Conservationists", World Watch Magazine, November/December **2**004. - WWF US, "Setting the Record Straight", accessed
+     6. act=0.054  | <bos>= = Early life** and** career = =
+     7. act=0.050  | -made chalk mound near Avebury in the English county of Wiltshire. It** is** part of the Stonehenge, Avebury and Associated Sites UNESCO World Heritage Site,
+     8. act=0.049  |  is the first game under Sony's line of " Classics HD. "** The** collection was included in the God of War III Ultimate Trilogy Edition, released on
+    tokens-most-promoted (logit-lens via M_base): " suisse" (+26.49)  "Datuak" (+25.82)  "brochen" (+25.48)  " laterally" (+25.25)  "Portail" (+24.75)  " nhi\u00eau" (+24.59)  "rentina" (+24.31)  "\u062c\u063a\u0631\u0627\u0641\u064a\u0627" (+24.00)  " K" (+23.92)  " hozz" (+23.75)  " " (+23.71)  " I" (+23.69)  " M" (+23.37)  " rapido" (+23.13)  "stini" (+23.07)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): avebury(n=2, z=2.16)  allori(n=1, z=0.00)  woodhouse(n=2, z=2.91)  agnolo(n=1, z=1.36)  bronzino(n=1, z=1.50)  mannerist(n=1, z=1.80)  footballer(n=2, z=3.69)  boxer(n=2, z=3.74)  environmentalism(n=1, z=2.69)  conservationists(n=1, z=2.77)  stonehenge(n=1, z=2.93)  sony's(n=1, z=3.02)  wwf(n=1, z=3.15)  wiltshire(n=1, z=3.29)  manager(n=4, z=4.97)
+
+[11] layer L6, latent 198 | rel_delta=+0.0933 | rel_delta=+0.0933 | peak_profile_l2=0.0454 | normalized_peak_profile_l2=0.1825 | peak_profile_cosine_dist=0.0139 | mean_base=0.0092 / mean_candidate=0.0083
+     1. act=0.051  | s theory of alienation: Suicide as stemming from either too much integration or too** little** integration with society as well as anomie (normlessness) due to rapid
+     2. act=0.044  |  and planar structures were designed, fabricated and tested both with multi-walled and** single**-walled carbon nanotubes dispersed in a number of different liquids. As a result
+     3. act=0.040  |  cardiovascular system many of us automatically think of cholesterol, blood pressure, LDL/**HDL**, and more. Often over looked is the role inflammation and blood viscosity have
+     4. act=0.040  |  swollen finger or toe. Acute inflammation is part of the normal healing process.** Chronic** inflammation is negative prolonged inflammation that can be anywhere in the body and sometimes un
+     5. act=0.039  |  Auburn, LSU, Mississippi State, and Ole Miss. They also faced three** Eastern** Division opponents : official SEC rival Tennessee, Florida, and South Carolina. Alabama
+     6. act=0.036  | vate or ovate; lower obovate, semi-amplexicaul;** upper** ovate, cordate, amplexicaul. Racemes lax, e
+     7. act=0.036  |  pressure drop. The air outside the jar now has a higher pressure than the** inside**, and forces its way inside the jar, forcing the egg downwards as it
+     8. act=0.036  |  of osteoporosis). Pre-osteopenia is lower bone density than normal but** higher** than osteopenia (the more familiar “false” form of osteopen
+    tokens-most-promoted (logit-lens via M_base): "IUrlHelper" (+34.36)  " auffi" (+33.85)  "RenderAtEndOf" (+32.18)  " Lijst" (+31.93)  " Monfieur" (+31.10)  "protoimpl" (+30.95)  "IntoConstraints" (+30.83)  " okuyay\u0131m" (+29.83)  "exitRule" (+29.66)  " AssemblyCulture" (+29.43)  " them\u017felves" (+29.13)  " Hou\u017fe" (+29.04)  "AddTagHelper" (+28.47)  " rai\u017f" (+28.10)  " }}\"></" (+28.10)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): inflammation(n=4, z=3.73)  ovate(n=2, z=2.58)  semi-amplexicaul(n=1, z=0.00)  osteopen(n=1, z=0.00)  normlessness(n=1, z=0.00)  amplexicaul(n=1, z=0.00)  vate(n=1, z=1.42)  pre-osteopenia(n=1, z=1.72)  osteopenia(n=1, z=1.72)  cordate(n=1, z=1.93)  anomie(n=1, z=1.94)  obovate(n=1, z=2.00)  racemes(n=1, z=2.09)  jar(n=2, z=3.93)  nanotubes(n=1, z=2.74)
+
+[12] layer L5, latent 197 | rel_delta=+0.0918 | rel_delta=+0.0918 | peak_profile_l2=0.0388 | normalized_peak_profile_l2=0.1659 | peak_profile_cosine_dist=0.0102 | mean_base=0.0093 / mean_candidate=0.0084
+     1. act=0.030  |  lenses. These can be used to focus at more typical focus distances and many** photographers** have a 90-100mm macro lens that they also
+     2. act=0.029  |  Jun;24(2):27–34). Most cases** of** diabetes are caused primarily by excess fat in the liver and muscles, the only
+     3. act=0.028  |  studies that used accelerometers to follow 36,383 adults**,** 40 years of age and older, for six years (Brit Med
+     4. act=0.028  |  injury - Chronic tooth grinding or clenching - Uneven chewing pressure Some cracks** are** visible to the naked eye. Others cannot be seen, but cause sensitivity to
+     5. act=0.028  |  within the constraints, budgets, and technical limitations existing. Most computer video cards**,** color monitors, printers, and other display devices (especially handheld/PDAs
+     6. act=0.027  |  right hand side. Older models only include 26 pins, and some** models** arrange them differently to fit on the PCB. There are many open source libraries
+     7. act=0.027  |  and accomplishing the goals they set (think New Year’s resolutions). Many** people** lack clarity and focus, and are generally poor at both planning and achieving goals
+     8. act=0.027  | aa, LimeWire, Gnutella, BitTorrent and Ares. Many users** of** these programs feel anonymous since they do not know who they are sharing files with
+    tokens-most-promoted (logit-lens via M_base): " imaginable" (+29.31)  " conceivable" (+28.50)  "Diweddarwch" (+25.59)  " \u043f\u043e\u0434\u0440\u044f\u0434" (+25.17)  " possibles" (+25.06)  " writeTo" (+24.84)  " perangkat" (+23.91)  " else" (+23.27)  " contin\u00faas" (+23.21)  "\u043a\u043b\u043e\u043f\u0435" (+22.98)  "\u062a\u0641\u0635\u06cc\u0644\u0627\u062a" (+22.93)  " extant" (+22.91)  " possible" (+22.69)  " t\u00e1ctil" (+22.62)  " anyway" (+22.57)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): gnutella(n=1, z=1.36)  limewire(n=1, z=1.94)  pdas(n=1, z=2.18)  accelerometers(n=1, z=2.28)  clenching(n=1, z=2.60)  bittorrent(n=1, z=2.63)  ares(n=1, z=3.09)  pcb(n=1, z=3.15)  accomplishing(n=1, z=3.23)  handheld(n=1, z=3.36)  uneven(n=1, z=3.55)  brit(n=1, z=3.59)  printers(n=1, z=3.62)  chewing(n=1, z=3.63)  resolutions(n=1, z=3.70)
+
+[13] layer L7, latent 259 | rel_delta=+0.0913 | rel_delta=+0.0913 | peak_profile_l2=0.0417 | normalized_peak_profile_l2=0.1587 | peak_profile_cosine_dist=0.0092 | mean_base=0.0095 / mean_candidate=0.0086
+     1. act=0.075  | 00 in 1990 to 358,0**0**0 in 2008, and 287,0
+     2. act=0.051  |  between the hours of 12 a.m. to 6 a**.**m. However, sometimes circumstances call for driving at night. Follow these tips
+     3. act=0.044  | ; Allmyr 2006a,b; Dayan **2**007). Higher levels of tric
+     4. act=0.042  | , Calif., Oct. 31-Nov. 4, **2**011. What the researchers found is that the sound levels from single
+     5. act=0.041  |  was delayed because of problems securing clear title to the land. In May **1**883
+     6. act=0.038  | 1 diabetes can occur at any age. Lifestyle choices don’t cause type** **1 diabetes. Symptoms of Type 1 diabetes People with type 1 diabetes
+     7. act=0.038  |  genes. It's a cultural aspect of human life, and reading hasn**'**t been around long enough to be included in our genetic code. Thus,
+     8. act=0.037  |  La Jolla Shores Beach in the summer, and it wasn’t until **2**013 that anyone knew why. Scripps Institution of Oceanography’s Andy
+    tokens-most-promoted (logit-lens via M_base): " \u0432\u0438\u043f\u0440\u0430\u0432\u0438\u0432\u0448\u0438" (+43.41)  "IsContent" (+39.65)  "GEBURTS" (+39.39)  " Efq" (+38.91)  " Majefty" (+38.78)  " Hou\u017fe" (+36.74)  " Roskov" (+35.42)  " AssemblyTitle" (+35.08)  " my\u017felf" (+34.88)  " it\u017felf" (+34.87)  "^(@)" (+34.79)  " himo" (+34.44)  " bezeichneter" (+34.05)  "\u017felves" (+33.14)  " \u2015\u2015\u2015\u2015\u2015" (+32.90)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): allmyr(n=1, z=0.00)  diabetes(n=4, z=4.17)  tric(n=1, z=2.03)  dayan(n=1, z=2.45)  wasn(n=1, z=2.79)  oceanography(n=1, z=2.87)  jolla(n=1, z=2.87)  scripps(n=1, z=2.88)  shores(n=1, z=3.77)  calif(n=1, z=3.83)  securing(n=1, z=3.93)  type(n=3, z=5.27)  genes(n=1, z=4.14)  delayed(n=1, z=4.20)  lifestyle(n=1, z=4.29)
+
+[14] layer L10, latent 3 | rel_delta=+0.0908 | rel_delta=+0.0908 | peak_profile_l2=0.0288 | normalized_peak_profile_l2=0.1450 | peak_profile_cosine_dist=0.0070 | mean_base=0.0095 / mean_candidate=0.0086
+     1. act=0.018  |  bomb threats, acts of violence, vandalism " from the group Anonymous. CNN**'**s John Roberts responded, stating that the Federal Bureau of Investigation found nothing connecting
+     2. act=0.017  |  in the University of Cambridge Department of Veterinary Medicine had their first breakthrough in **2**011 and have since been working to produce chickens that are resistant to
+     3. act=0.017  | 27, 1986 – April 28, **2**014 (new closing date) Museum: Natural History Museum Location:
+     4. act=0.016  |  Houston’s pronounced cultural diversity; 30 years ahead of the nation**’**s ethnic mixing. We will explore the impact and outcome on America. Dem
+     5. act=0.016  |  the river documented in 'Liquid History'. Drawing on the resources of English Heritage**'**s unrivalled photographic archives, the book records a journey along the length of the
+     6. act=0.016  |  Time Magazine dated Monday 2nd September 1946: Britain**'**s Labour Government, long under fire for failing to straighten out the housing shortage
+     7. act=0.016  |  pages, HC., (Reprint 1924 edn.) **1**992 4.Mohenjo-Daro and the Indus
+     8. act=0.016  |  months to complete as the rangers search every burrow they can find. Until **2**008, each survey has showed a steady increase in pairs of puff
+    tokens-most-promoted (logit-lens via M_base): "Manbalar" (+34.97)  "ViewImports" (+32.56)  "rungs" (+32.38)  "awtextra" (+32.29)  "UTIONS" (+31.85)  "defin" (+31.73)  "thodon" (+31.22)  "mallows" (+31.08)  "igneurs" (+30.70)  "tigungs" (+30.39)  "Hauptartikel" (+30.34)  " ostavi" (+30.07)  "llong" (+29.74)  "omentos" (+29.67)  "meneu" (+29.66)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): heritage's(n=1, z=1.67)  mohenjo-daro(n=1, z=1.87)  edn(n=1, z=2.63)  unrivalled(n=1, z=2.80)  indus(n=1, z=3.08)  cnn's(n=1, z=3.10)  burrow(n=1, z=3.10)  straighten(n=1, z=3.27)  vandalism(n=1, z=3.33)  reprint(n=1, z=3.39)  puff(n=1, z=3.55)  britain's(n=1, z=3.68)  veterinary(n=1, z=3.75)  photographic(n=1, z=3.76)  chickens(n=1, z=3.82)
+
+[15] layer L11, latent 138 | rel_delta=+0.0904 | rel_delta=+0.0904 | peak_profile_l2=0.0302 | normalized_peak_profile_l2=0.1687 | peak_profile_cosine_dist=0.0113 | mean_base=0.0078 / mean_candidate=0.0071
+     1. act=0.027  | <bos>Oral cancer is primarily cancer of the mouth affecting majorly tissues** of** the lips, gums and palate and also the roof of the mouth, in
+     2. act=0.026  |  has the same hash value, and that its hard to find two strings that** has** the same hash). Examples of collision proof checksums are MD5, and
+     3. act=0.024  |  who he should have hated, faith and love that are worth remembering every year**….** to find out more, check out this History channel link. Excerpt from History
+     4. act=0.023  |  cancer of the mouth affecting majorly tissues of the lips, gums and palate** and** also the roof of the mouth, in some cases even the tongue. Oral
+     5. act=0.022  |  is the specified checksum is collision proof (that its very unlikely that two strings** has** the same hash value, and that its hard to find two strings that has
+     6. act=0.021  |  toenails, some toenails can become abnormally thick and in turn** they** can rub inside of your shoes, putting added pressure on your toes and causing
+     7. act=0.021  | <bos>Books on Sindh - History 1. Sindh and the Races that in**habits** the Valley of the Indus by Sir Richard F. Burton --with notices of
+     8. act=0.020  |  the tongue. Oral cancer is among the neck and head cancers and affects also** in** the throat. Oral cancer can affect anyone but is more evident in people of
+    tokens-most-promoted (logit-lens via M_base): "Hozz\u00e1f\u00e9r\u00e9s" (+33.90)  "onAttach" (+31.42)  "</thead>" (+30.67)  "Refer\u00e8ncies" (+28.33)  "loroethane" (+28.16)  "regards" (+25.66)  "claren" (+24.71)  " neutron" (+24.47)  " Eiffel" (+24.43)  " ovvero" (+24.36)  "didReceive" (+24.35)  "Manbalar" (+24.31)  "\u6d69" (+23.67)  "R\u00e9f\u00e9rences" (+23.59)  "CreateIndex" (+23.54)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): hash(n=3, z=3.63)  majorly(n=2, z=2.70)  toenails(n=2, z=2.81)  sindh(n=2, z=2.98)  oral(n=4, z=4.26)  gums(n=2, z=3.21)  strings(n=3, z=4.04)  palate(n=2, z=3.35)  checksums(n=1, z=1.71)  tissues(n=2, z=3.83)  checksum(n=1, z=2.27)  collision(n=2, z=3.95)  affecting(n=2, z=4.07)  cancer(n=5, z=4.93)  inhabits(n=1, z=2.77)
+
+[16] layer L5, latent 348 | rel_delta=+0.0882 | rel_delta=+0.0882 | peak_profile_l2=0.0495 | normalized_peak_profile_l2=0.1361 | peak_profile_cosine_dist=0.0039 | mean_base=0.0106 / mean_candidate=0.0096
+     1. act=0.096  |  your child's with respect to geographic location, minority enrollment, and other** characteristics**. NAEP provides the common measure we need to tell us how America'
+     2. act=0.086  |  this year EOL will let people contribute pictures, video, facts or other** content** to the website "wiki-style." The encyclopedia's creators predict its
+     3. act=0.083  |  know about the environment? Often teachers will talk about animals or plants or other** parts** of the natural world. In these themes or learning times, they may talk
+     4. act=0.081  |  doesn’t matter if your aspirations lay in fitness, finance, or anywhere** else**, self-improvement is a hugely popular industry. People are constantly looking for
+     5. act=0.079  |  others, help widows and orphans, not fight, as well as other moral** precepts**. Ælfric also ordered the composition of the first Life of Dunstan
+     6. act=0.079  |  the recent or long-standing colour changes of your toenails or other** unusual** skin changes including growths or bumps. Patients presenting with toenails that are
+     7. act=0.078  |  existing. Most computer video cards, color monitors, printers, and other display** devices** (especially handheld/PDAs/wireless phones) will yield varying levels of
+     8. act=0.074  |  will likely carry different diagnoses depending on their location, size, duration and other** factors**. The good news is that whatever aesthetic changes are happening with your feet,
+    tokens-most-promoted (logit-lens via M_base): "TestingModule" (+29.06)  "SourceChecksum" (+28.47)  " \u0432\u0456\u043a\u0456" (+28.12)  " \u0434\u043e\u043f\u0438\u0441\u0430\u0432\u0448\u0438" (+27.62)  " ComVisible" (+27.29)  " invokingState" (+25.84)  " jScrollPane" (+25.62)  " \u0644\u0644\u0627\u0633\u0645\u0627\u0621" (+23.96)  " ProtoMessage" (+23.46)  " other" (+22.90)  "Alike" (+22.72)  "ngOnInit" (+22.69)  "%\");" (+22.38)  " nahilalakip" (+22.08)  " Shrink" (+22.01)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): lfric(n=1, z=0.00)  toenails(n=2, z=2.81)  encyclopedia's(n=1, z=1.10)  naep(n=1, z=1.91)  eol(n=1, z=2.15)  pdas(n=1, z=2.18)  dunstan(n=1, z=2.71)  growths(n=1, z=2.75)  precepts(n=1, z=2.83)  doesn(n=1, z=3.22)  diagnoses(n=1, z=3.24)  widows(n=1, z=3.36)  handheld(n=1, z=3.36)  orphans(n=1, z=3.48)  wiki-style(n=1, z=3.60)
+
+[17] layer L6, latent 301 | rel_delta=+0.0844 | rel_delta=+0.0844 | peak_profile_l2=0.0477 | normalized_peak_profile_l2=0.1777 | peak_profile_cosine_dist=0.0114 | mean_base=0.0086 / mean_candidate=0.0078
+     1. act=0.080  |  large, four-toed kangaroo rat with a conspicuous white tuft on the** tip** of its long tail. It has buff-colored fur and is white underneath
+     2. act=0.076  | toed kangaroo rat with a conspicuous white tuft on the tip of its long** tail**. It has buff-colored fur and is white underneath. - Life History
+     3. act=0.072  | -toed kangaroo rat with a conspicuous white tuft on the tip of its** long** tail. It has buff-colored fur and is white underneath. - Life
+     4. act=0.071  | , further adding to the dark coloration. Black icebergs also occur when the** tip** of a white iceberg flips over and the bottom becomes the top. The bottom
+     5. act=0.066  |  Status - A fairly large, four-toed kangaroo rat with a conspicuous white** tu**ft on the tip of its long tail. It has buff-colored fur
+     6. act=0.065  |  twice as long as the sepals, obovate, long clawed,** apex** truncate. Stamens 6; filament linear; anthers broadly linear,
+     7. act=0.062  |  hand, shows a broad panorama, a grand sweep of bay with a double** promont**ory or spit - one emphasized by a scattering of dark figures, the other
+     8. act=0.060  |  this project has been to assemble single-walled carbon nanotubes on electrodes at the** tip** of a biocompatible cantilever and use these for chemical species sensing in air and
+    tokens-most-promoted (logit-lens via M_base): " tip" (+38.12)  " length" (+38.01)  " lengths" (+35.83)  " heads" (+35.62)  " lenght" (+33.02)  " head" (+32.99)  "tip" (+32.08)  "longer" (+31.51)  " d\u00e0i" (+31.33)  " panjang" (+30.45)  " Length" (+30.44)  " LENGTH" (+30.21)  "length" (+29.99)  " Heads" (+29.98)  "lengths" (+29.97)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): tuft(n=4, z=2.56)  conspicuous(n=4, z=3.35)  buff-colored(n=4, z=3.49)  kangaroo(n=4, z=3.50)  fur(n=4, z=4.03)  tip(n=6, z=4.55)  toed(n=2, z=2.83)  four-toed(n=2, z=2.83)  rat(n=4, z=4.17)  tail(n=4, z=4.34)  underneath(n=3, z=4.08)  biocompatible(n=1, z=1.96)  obovate(n=1, z=2.00)  truncate(n=1, z=2.24)  anthers(n=1, z=2.29)
+
+[18] layer L5, latent 338 | rel_delta=+0.0841 | rel_delta=+0.0841 | peak_profile_l2=0.0319 | normalized_peak_profile_l2=0.1214 | peak_profile_cosine_dist=0.0025 | mean_base=0.0086 / mean_candidate=0.0078
+     1. act=0.074  |  7 hours of sleep every night, and some adults will require more to** feel** well-rested. 2. Take breaks and don’t drive for
+     2. act=0.054  |  aside, and common ground must be found on Treaty and Aboriginal rights in order** for** Canada to grow and prosper as a nation. “The road to economic independence
+     3. act=0.053  |  and common ground must be found on Treaty and Aboriginal rights in order for Canada** to** grow and prosper as a nation. “The road to economic independence for NAN
+     4. act=0.049  | ," said Portland Fire & Rescue Lieutenant Sam James. Oxygen is needed for fires** to** start. A spark that would not normally burn
+     5. act=0.048  |  Different timing is needed for different speed of engine (rpm) to get the** most** efficient combustion.The cam pulley can be adjusted to suit the driving style of
+     6. act=0.047  | 7 hours of sleep every night, and some adults will require more to feel** well**-rested. 2. Take breaks and don’t drive for too
+     7. act=0.046  | . - A varied diet with fresh vegetables and occasional treats should be provided for** optimal** growth and development of bearded dragons. What if My Bearded Dragon Eats a
+     8. act=0.045  |  be found on Treaty and Aboriginal rights in order for Canada to grow and prosper** as** a nation. “The road to economic independence for NAN will require a change
+    tokens-most-promoted (logit-lens via M_base): "enumi" (+31.91)  " \u064a\u062a\u064a\u0645\u0647" (+30.36)  "astify" (+28.61)  "verwijspagina" (+27.36)  "InjectAttribute" (+27.00)  "TestTools" (+26.96)  "\u0012" (+24.96)  "\u24d8" (+24.91)  "endsection" (+24.70)  "mListener" (+24.51)  "\u811a\u6ce8\u306e\u4f7f\u3044\u65b9" (+24.51)  "hav" (+24.06)  "\u0161anai" (+22.76)  " venganza" (+22.33)  "exitRule" (+22.12)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): prosper(n=3, z=3.45)  aboriginal(n=3, z=3.78)  bearded(n=2, z=3.34)  nan(n=2, z=3.49)  well-rested(n=2, z=3.59)  treaty(n=3, z=4.31)  independence(n=3, z=4.58)  pulley(n=1, z=2.92)  require(n=3, z=4.78)  breaks(n=2, z=4.46)  rpm(n=1, z=3.49)  combustion(n=1, z=3.57)  nation(n=3, z=4.88)  adults(n=2, z=4.59)  don(n=2, z=4.60)
+
+[19] layer L6, latent 249 | rel_delta=+0.0833 | rel_delta=+0.0833 | peak_profile_l2=0.0516 | normalized_peak_profile_l2=0.1473 | peak_profile_cosine_dist=0.0082 | mean_base=0.0121 / mean_candidate=0.0111
+     1. act=0.064  |  are required which are efficient and effective, which are seen as legitimate by their** citizens**, which conduct their actions under the principles of transparency and integrity. Corruption,
+     2. act=0.054  |  when she reads it. 3. Maybe you should… This expression gives** people** a piece of advice with a call for action. For example: - I
+     3. act=0.054  |  for NAN will require a change of thinking by our Treaty partners and the Canadian** public**,” NAN Grand Chief Harvey Yesno told Northern Ontario community leaders at an event
+     4. act=0.053  |  Physics (AIP) Newswise — Vuvuzelas blasted into the** publics**’ ears and awareness during the 2010 FIFA (Fédération
+     5. act=0.050  |  you could say, "George is brave about ghosts," although generally I think** people** are more comfortable saying "brave about" an action, such as, "
+     6. act=0.050  |  and culture, influenced in no small degree the growing effort to wean the** people** from an Anglic
+     7. act=0.049  |  economic activity more environmentally friendly.” – World Economic Forum Smart city is for the** people** Smart city is an urban area, where data, sensors and networks are used
+     8. act=0.048  |  health care, enhanced efficiency of practices, reduction in medical errors, and increased** patient** satisfaction. Moreover, they help in optimizing health care facilities’ reimbursement. Where
+    tokens-most-promoted (logit-lens via M_base): " people" (+62.89)  "people" (+57.49)  "People" (+51.74)  " People" (+50.40)  " PEOPLE" (+47.42)  " folks" (+45.17)  " individuals" (+44.42)  " peoples" (+42.71)  " \u043b\u044e\u0434\u0438" (+40.83)  " ppl" (+38.83)  " Individuals" (+38.80)  " \u041b\u044e\u0434\u0438" (+38.68)  " mensen" (+38.45)  "Individuals" (+37.69)  " residents" (+37.35)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): yesno(n=1, z=0.00)  newswise(n=1, z=0.00)  anglic(n=1, z=1.04)  nan(n=2, z=3.49)  vuvuzelas(n=1, z=1.64)  aip(n=1, z=2.49)  publics(n=1, z=2.55)  wean(n=1, z=2.72)  optimizing(n=1, z=3.01)  brave(n=2, z=4.33)  ration(n=1, z=3.17)  reimbursement(n=1, z=3.35)  environmentally(n=1, z=3.44)  blasted(n=1, z=3.49)  ghosts(n=1, z=3.88)
+
+[20] layer L7, latent 69 | rel_delta=+0.0829 | rel_delta=+0.0829 | peak_profile_l2=0.0150 | normalized_peak_profile_l2=0.1355 | peak_profile_cosine_dist=0.0059 | mean_base=0.0049 / mean_candidate=0.0045
+     1. act=0.019  | ; Allmyr 2006a,b; Dayan **2**007). Higher levels of tric
+     2. act=0.012  |  two muscles and sits closer to the skin, making it the superficial muscle.** It** is also a two headed muscle and spans two joints (the ankle and the
+     3. act=0.012  |  the trap and then block the tunnel. Mix castor oil with water. Use** **6 oz. castor oil with a gallon of water and 2 tbsp.
+     4. act=0.012  |  sense of belonging, purpose and a reason to wake up every day. Although** there**’s no problem with solitude, joining other people for different and collaborating together
+     5. act=0.011  |  knows how big the encased magnets are -- they might be much smaller. Anyway**,** they're pretty powerful little goobers, and I have 4 total
+     6. act=0.011  | 64 plates, 730 pages, HC., (Reprint** **1931 edn.), 1996 Sindhi Dictionaries &
+     7. act=0.011  |  invited to someone's house, you should try to come on time.** Don**'t arrive early, but try not to be more than ten minutes late
+     8. act=0.011  |  water and 2 tbsp. of liquid soap to make the concentration. Add** **1 oz. of this mix per gallon of water to use for treatment
+    tokens-most-promoted (logit-lens via M_base): " <\"," (+29.64)  " Lars" (+28.46)  " CreateTagHelper" (+28.07)  "\":\"\"," (+27.41)  " StatelessWidget" (+27.25)  " Anaconda" (+26.97)  " ?'," (+26.16)  " ch\u00f3" (+26.11)  "'}," (+25.52)  " perine" (+25.17)  " Efq" (+25.16)  "'},\r" (+25.12)  "$_['" (+25.00)  " Boven" (+24.85)  " fa\u017ft" (+24.70)
+    rare-context words (count*(cutoff-zipf), rarer/more-recurring first): allmyr(n=1, z=0.00)  tbsp(n=2, z=3.07)  castor(n=2, z=3.18)  goobers(n=1, z=1.90)  gallon(n=2, z=3.75)  tric(n=1, z=2.03)  sindhi(n=1, z=2.33)  dayan(n=1, z=2.45)  edn(n=1, z=2.63)  encased(n=1, z=3.00)  dictionaries(n=1, z=3.18)  magnets(n=1, z=3.38)  muscle(n=2, z=4.44)  reprint(n=1, z=3.39)  solitude(n=1, z=3.42)
+
+--- Per-layer AGGREGATE logit-lens (sum of that layer's top-decreased features through W_down) ---
+This is the joint signal: tokens promoted by the *direction-sum* of the layer's most-changed features.
+
+  L00  (delta-weighted, n_features=15, residual_norm=0.000):
+      "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "[@BOS@]" (+0.00)  "<2mass>" (+0.00)  "\n" (+0.00)  "\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n" (+0.00)  "\n\n\n" (+0.00)  "\n\n\n\n" (+0.00)
+  L01  (delta-weighted, n_features=15, residual_norm=0.000):
+      "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "[@BOS@]" (+0.00)  "<2mass>" (+0.00)  "\n" (+0.00)  "\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n" (+0.00)  "\n\n\n" (+0.00)  "\n\n\n\n" (+0.00)
+  L02  (delta-weighted, n_features=15, residual_norm=0.000):
+      "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "[@BOS@]" (+0.00)  "<2mass>" (+0.00)  "\n" (+0.00)  "\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n\n\n\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n\n" (+0.00)  "\n\n\n\n\n" (+0.00)  "\n\n\n" (+0.00)  "\n\n\n\n" (+0.00)
+  L03  (delta-weighted, n_features=15, residual_norm=8.640):
+      "########." (+29.93)  " \u0641\u0631\u064a\u0628\u064a\u0633" (+28.00)  " kaarangay" (+27.87)  "expandindo" (+27.83)  ".*\")]" (+27.45)  "abestanden" (+24.96)  ";</" (+24.78)  " esterni" (+23.78)  "-------------</" (+23.40)  "}();" (+23.20)  "`;\r" (+23.12)  "\\{\\\\" (+23.05)  "curacies" (+22.87)  "BeginInit" (+22.51)  " locate" (+22.22)  "AnimationsModule" (+21.97)  " locating" (+21.90)  ">\";\r" (+21.87)  " vulgares" (+21.30)  "parseFrom" (+21.26)
+  L04  (delta-weighted, n_features=15, residual_norm=9.034):
+      " need" (+29.38)  " needed" (+28.65)  "cal" (+27.24)  " needs" (+26.99)  "IntoConstraints" (+25.83)  "    " (+24.50)  " utili" (+24.38)  " come" (+24.36)  " these" (+24.02)  " \u9700\u8981" (+23.74)  " require" (+23.57)  " necesitar" (+23.54)  "\u9700\u8981" (+23.52)  "via" (+23.48)  " involve" (+23.43)  "How" (+23.28)  " necesito" (+23.19)  " requires" (+22.96)  "ro" (+22.45)  "mar" (+22.33)
+  L05  (delta-weighted, n_features=15, residual_norm=8.671):
+      "contentLoaded" (+30.09)  "omitempty" (+28.91)  "AnimationsModule" (+28.23)  "SharedCtor" (+25.12)  "tagHelperRunner" (+24.86)  "ConfigureAwait" (+24.71)  "ite" (+24.50)  " Waray" (+24.45)  " sondern" (+23.95)  "\u041e\u0442\u0432\u0435\u0442\u0438\u0442\u044c" (+23.91)  " noqa" (+23.81)  "twimg" (+23.67)  "\u0e41\u0e15\u0e48" (+23.27)  "ikis" (+23.15)  "<>());" (+22.67)  "var" (+22.66)  "localctx" (+22.52)  "Today" (+22.44)  "GOTREF" (+22.37)  ".\"]," (+22.31)
+  L06  (delta-weighted, n_features=15, residual_norm=7.820):
+      " mezz" (+32.69)  " Efq" (+31.73)  " people" (+29.19)  " who" (+28.30)  " Wilshire" (+26.36)  " Usted" (+25.84)  " per\u017fon" (+25.83)  " u\u017fe" (+25.50)  " peop" (+25.24)  " hou\u017fe" (+24.89)  "\u5408\u8846" (+24.58)  " person" (+24.50)  "soby" (+24.49)  " purpo\u017fe" (+24.43)  " LCS" (+24.35)  "ensi" (+24.30)  " Philadelphia" (+24.16)  " \u017fte" (+24.11)  " \u017ftate" (+23.99)  " Majefty" (+23.92)
+  L07  (delta-weighted, n_features=15, residual_norm=10.532):
+      "enumi" (+29.95)  "arbox" (+24.54)  "artige" (+23.97)  "DNEY" (+23.19)  "t\u00fai" (+22.92)  "\u0119po" (+22.59)  " aapt" (+22.57)  "navigator" (+22.25)  "criture" (+22.09)  "\u093e\u092a\u094d\u0924" (+22.01)  " \u062a\u0639\u062f\u0649" (+21.90)  "stini" (+21.85)  "vrouw" (+21.79)  "Xna" (+21.73)  "\u00f4nica" (+21.67)  "vins" (+21.66)  " Bemer" (+21.53)  "\u0644\u0645\u0627\u0646\u064a\u0627" (+21.52)  " tramp" (+21.45)  "\u05c1" (+21.45)
+  L08  (delta-weighted, n_features=15, residual_norm=7.681):
+      "InjectAttribute" (+36.01)  "RenderAtEndOf" (+32.49)  "ValueGeneration" (+29.15)  "scrapy" (+26.82)  "D\u1eef" (+25.99)  "AddRange" (+25.85)  "\ud30e" (+25.82)  "h\u00e4use" (+25.73)  "\u306a\u304b\u306a" (+25.64)  "\u0627\u062d\u0628" (+25.51)  "generally" (+25.36)  " '\\\\;'" (+24.96)  "yszer" (+24.83)  "signable" (+24.79)  "StringVar" (+24.44)  "pitaux" (+24.40)  "\u00fcedad" (+24.28)  " generally" (+24.15)  "})*/" (+24.15)  "varande" (+23.90)
+  L09  (delta-weighted, n_features=15, residual_norm=8.120):
+      "\u0431\u043b\u0438\u043e\u0442\u0435" (+24.38)  "herself" (+24.16)  "QtWidgets" (+23.73)  "conia" (+23.66)  " tiende" (+23.65)  "reactstrap" (+23.56)  "shund" (+23.54)  "enumi" (+23.39)  "xg" (+23.27)  "ytt\u00e4\u00e4" (+23.24)  "CAM" (+22.91)  " Norv\u00e8ge" (+22.62)  "getDoctrine" (+22.52)  "propTypes" (+22.51)  " tienden" (+22.43)  " roble" (+22.21)  "k\u00fdmi" (+22.01)  " Det" (+21.99)  "varchar" (+21.98)  "\u05d3\u05d5\u05ea" (+21.85)
+  L10  (delta-weighted, n_features=15, residual_norm=8.182):
+      "awtextra" (+32.24)  "Precis" (+31.07)  " AssemblyCulture" (+30.39)  "illem" (+30.16)  "cshtml" (+29.26)  "Fore" (+28.47)  "defin" (+28.21)  " useNavigate" (+27.53)  "\u5b58\u4e8e\u4e92\u8054\u7f51\u6863\u6848\u9986" (+27.44)  "UTIONS" (+27.35)  "posit" (+27.27)  " r\u00e9servoir" (+26.92)  "\u22f1" (+26.58)  "uffer" (+26.04)  "\u0648\u0630" (+25.41)  "findpost" (+24.92)  "PSE" (+24.86)  " Bes" (+24.86)  " vPvB" (+24.82)  "nastics" (+24.66)
+  L11  (delta-weighted, n_features=15, residual_norm=9.075):
+      "gwick" (+42.22)  "ordnet" (+41.54)  "erle" (+41.31)  "d\u0131" (+40.72)  "\u0e4c\u0e15\u0e39\u0e19" (+39.77)  "\u0647\u0629" (+38.95)  " Valence" (+37.27)  " Sedgwick" (+36.86)  "gory" (+36.79)  "en\u00e1" (+36.42)  " Waray" (+36.09)  "tament" (+35.71)  " \u064a\u0624" (+35.58)  "enteuer" (+35.57)  "yarnpkg" (+35.38)  " Haan" (+35.32)  "\ud835\udc32" (+35.22)  " UPM" (+35.22)  "matchCondition" (+35.12)  "o\u011flu" (+35.01)
+  L12  (delta-weighted, n_features=15, residual_norm=6.590):
+      "ContentAsync" (+32.59)  " GenerationType" (+28.70)  "StoryboardSegue" (+27.78)  "ViewFeatures" (+27.66)  "DoubleQuotes" (+26.70)  "waite" (+26.02)  " \u0627\u0644\u0645\u0639\u064a\u0627\u0631\u0649" (+24.62)  "ixel" (+24.15)  "IntegrationTest" (+23.75)  " CreateTagHelper" (+23.46)  "WebMethod" (+22.84)  "LEBR" (+22.68)  " equator" (+22.16)  " hijo" (+22.16)  " hasard" (+21.94)  " AttributeSet" (+21.86)  "complexType" (+21.59)  " EconPapers" (+21.57)  " quidem" (+21.55)  "UpInside" (+21.47)
+  L13  (delta-weighted, n_features=15, residual_norm=5.959):
+      " GetEnumerator" (+29.27)  "\u00fatbol" (+28.11)  "\u203f" (+27.56)  "DeleteMapping" (+26.23)  " \u0441\u0442\u0430\u043d\u043e\u0432\u043d\u0438\u043a\u0430" (+23.14)  "utebol" (+23.05)  " Sociale" (+23.04)  "ModelState" (+22.75)  "uang" (+22.47)  " Glaub" (+22.11)  "\u0648\u0639\u0629" (+21.70)  "asmussen" (+21.62)  " s\u1ea1n" (+21.37)  "Notae" (+21.20)  "enerbah\u00e7e" (+20.96)  " compleanno" (+20.73)  "uver" (+20.71)  " StatusCode" (+20.67)  "\u041a\u043b\u0438\u043c\u0430\u0442\u044b" (+20.57)  "ardown" (+20.41)
+  L14  (delta-weighted, n_features=15, residual_norm=3.700):
+      " nghi" (+28.15)  "\u00f8b" (+26.30)  "joyed" (+25.70)  "entliche" (+24.47)  "ENEFITS" (+23.99)  "EXPL" (+23.59)  "Bakgrunnsstoff" (+23.43)  "lusst" (+23.29)  " \u0628\u06cc\u0631" (+23.27)  "yntaxException" (+23.15)  "\u01b0\u1ee1ng" (+22.92)  " pimples" (+22.87)  " drive" (+22.73)  "ikia" (+22.50)  "gef\u00fchrt" (+22.42)  "\u0434\u044c\u043c\u0438" (+22.21)  "drive" (+21.87)  "pylene" (+21.62)  "entlich" (+21.60)  " Benef" (+21.48)
+  L15  (delta-weighted, n_features=15, residual_norm=4.680):
+      "marle" (+27.21)  " R\u00e9ponses" (+22.82)  "hobo" (+21.98)  "\u0441\u043a\u0435" (+21.87)  "\u0440\u0438\u043e" (+21.63)  "innis" (+21.62)  "INN" (+21.53)  " Ess" (+21.24)  " disso" (+21.20)  "\u010dky" (+21.10)  "STELL" (+21.04)  "\u0430\u043d\u043e" (+20.85)  "ISS" (+20.72)  "gemini" (+20.66)  "hring" (+20.61)  " plus" (+20.51)  "noid" (+20.50)  "NO" (+20.43)  " forward" (+20.26)  "raje" (+20.23)
+  L16  (delta-weighted, n_features=15, residual_norm=4.482):
+      " Normdatei" (+40.00)  " CreateTagHelper" (+38.08)  "abestanden" (+34.95)  "BufferException" (+34.89)  "ScopeManager" (+34.77)  " '\\\\;'" (+34.53)  "\u811a\u6ce8\u306e\u4f7f\u3044\u65b9" (+34.02)  " CURLOPT" (+33.74)  " Wicidata" (+33.65)  " surla" (+32.97)  "ValueStyle" (+31.63)  " ProtoMessage" (+30.50)  "RegistryLite" (+30.36)  " consultato" (+30.01)  "URLException" (+29.52)  "\udb40\udc6e" (+29.47)  "(!__" (+29.34)  " \u0644\u0644\u0645\u0639\u0627\u0631\u0641" (+29.24)  "ImageContext" (+28.61)  "StoryboardSegue" (+28.57)
+  L17  (delta-weighted, n_features=15, residual_norm=1.854):
+      "ValueStyle" (+41.04)  " gynhyrchwyd" (+40.14)  "abestanden" (+39.35)  " \u062a\u0636\u064a\u0641\u0644\u0647\u0627" (+35.82)  "Linki" (+34.37)  "Viitteet" (+34.13)  " useAppContext" (+33.60)  "\u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a\u0629" (+32.15)  "specialchars" (+31.78)  "styleType" (+31.69)  "oleic" (+30.93)  "RenderAtEndOf" (+30.11)  "\u092a\u092f\u093e" (+29.99)  "parsedMessage" (+29.93)  "@[+][" (+29.70)  "FieldNumber" (+29.62)  "m\u1eb7t" (+29.62)  " \u0648\u06cc\u06a9\u06cc\u200c\u067e\u062f\u06cc" (+29.46)  "tableFuture" (+28.78)  "hoeddwyd" (+28.48)
+  L18  (delta-weighted, n_features=15, residual_norm=3.559):
+      " terminology" (+32.78)  " terms" (+31.70)  "EndGlobalSection" (+30.97)  " termen" (+30.60)  " term" (+30.35)  "chauer" (+30.13)  "twimg" (+29.96)  " weighing" (+28.30)  "MENAFN" (+27.63)  " weighed" (+27.59)  " termes" (+27.56)  " terme" (+27.15)  " t\u00e9rminos" (+27.02)  "\u043d\u0456\u0446\u0438\u043f\u0430\u043b\u0456" (+26.76)  " weighting" (+26.50)  "Terms" (+26.47)  "\u0446\u0435\u0437\u0434\u0430\u0442\u043d\u0438\u0439" (+26.09)  "Datuak" (+25.20)  "TERM" (+25.14)  " Terminology" (+25.00)
+  L19  (delta-weighted, n_features=15, residual_norm=5.547):
+      "OGND" (+38.48)  " utafitiHapana" (+35.75)  "Geplaatst" (+33.87)  "UnusedPrivate" (+31.91)  "InjectAttribute" (+30.84)  " them\u017felves" (+30.19)  " himo" (+30.04)  " plea\u017fure" (+29.84)  " Majefty" (+29.42)  "QMetaType" (+29.35)  " again\u017ft" (+29.29)  " my\u017felf" (+29.18)  "CloseOperation" (+28.99)  " Hou\u017fe" (+28.54)  " jadx" (+28.12)  "gh\u1ebf" (+27.73)  " Efq" (+27.66)  " u\u017fed" (+27.41)  " QWidget" (+27.37)  " it\u017felf" (+27.32)
+  L20  (delta-weighted, n_features=15, residual_norm=5.161):
+      " AssemblyCulture" (+45.04)  "MessageOf" (+40.08)  " eventdata" (+37.93)  " \u062a\u0636\u064a\u0641\u0644\u0647\u0627" (+37.11)  "IntoConstraints" (+36.38)  "aarrggbb" (+35.48)  "WithIOException" (+35.12)  "oredCriteria" (+34.02)  "AsUp" (+33.91)  " otomatig" (+33.55)  "UrlResolution" (+33.19)  "writeFieldEnd" (+33.14)  "ValueGeneration" (+32.87)  "XmlEnum" (+32.77)  "MigrationBuilder" (+32.75)  " autorytatywna" (+32.24)  "sidemargin" (+31.89)  " utafitiHapana" (+31.80)  " NSCoder" (+31.51)  " Normdatei" (+31.25)
+  L21  (delta-weighted, n_features=15, residual_norm=3.548):
+      " depending" (+45.62)  " in" (+42.84)  " than" (+42.52)  "," (+40.72)  " depends" (+40.47)  " depended" (+36.42)  " depend" (+36.02)  " dependiendo" (+35.46)  " on" (+35.22)  " but" (+35.17)  " or" (+34.17)  " by" (+33.65)  ";" (+32.91)  " Depending" (+32.15)  " for" (+31.70)  " tergantung" (+31.67)  "Depending" (+31.54)  " d\u00e9pend" (+31.31)  " seg\u00fan" (+31.12)  "depending" (+30.57)
+  L22  (delta-weighted, n_features=15, residual_norm=3.936):
+      "'),\r" (+34.07)  "'))\r" (+32.91)  "principalColumn" (+32.30)  "\"/></" (+32.16)  "':\r" (+31.08)  "'));" (+30.43)  "';\r" (+30.38)  "<>();\r" (+30.23)  "')\r" (+30.19)  "')," (+30.14)  "\"));\r" (+30.02)  "\":\r" (+30.01)  "'):" (+29.63)  "'\r" (+29.34)  "',\r" (+28.92)  "httphttps" (+28.49)  "'))," (+28.46)  " Read" (+28.39)  " CrossRef" (+28.31)  " \r" (+28.28)
+  L23  (delta-weighted, n_features=15, residual_norm=2.910):
+      " ]\r" (+37.29)  " \"\"\"\r" (+35.30)  "\u0411\u0438\u043b\u0433\u0430\u043b\u0434\u0430\u0445\u0430\u0440\u0448" (+34.34)  "\u201d]" (+32.88)  "`]" (+31.45)  "'')" (+31.32)  "\"\")" (+31.25)  " \"\"\"" (+31.14)  "\"\"\")" (+30.93)  "\"],\r" (+30.59)  "'})" (+30.54)  "\"]\r" (+30.21)  "/>\";" (+30.21)  "\"})" (+30.14)  "\"):" (+30.10)  "...\");\r" (+29.99)  ")\uff1a" (+29.92)  " \u00bb)" (+29.71)  " ());" (+29.42)  "\"]:" (+29.36)
+  L24  (delta-weighted, n_features=15, residual_norm=3.028):
+      "othesis" (+29.81)  " i" (+29.17)  "naphthal" (+27.38)  "MERCIAL" (+27.17)  "asantry" (+26.59)  "polation" (+26.58)  "anneau" (+26.49)  "m\u1eb7t" (+26.30)  "^(@)" (+25.52)  "umenti" (+25.23)  "SDAY" (+24.92)  " Schla" (+24.88)  "zer\u0171" (+24.29)  "ividual" (+24.29)  "bership" (+24.01)  "BRARY" (+23.66)  " ERSITY" (+23.63)  "leroi" (+23.05)  "INCIP" (+22.97)  "elfare" (+22.94)
+  L25  (delta-weighted, n_features=15, residual_norm=1.628):
+      " Monfieur" (+35.26)  " Jefus" (+29.67)  " Chrift" (+29.60)  " pleaf" (+28.70)  " fuper" (+28.31)  " i\u017ft" (+28.02)  " feveral" (+27.89)  " Chriftian" (+27.88)  " plea\u017fure" (+26.88)  " chofe" (+26.81)  " pa\u017f\u017f" (+26.46)  " \u017fp" (+26.33)  " poffe" (+26.04)  "\u3000\u3000\u3010" (+25.96)  " u\u017f" (+25.90)  " rai\u017f" (+25.71)  " Con\u017f" (+25.64)  " The\u017fe" (+25.45)  " occaf" (+25.16)  " \u017feveral" (+25.02)
+
+--- GLOBAL AGGREGATE logit-lens (sum across all top-20 cross-layer features) ---
+  (delta-weighted, n_features_summed=20, n_layers_spanned=6, residual_norm=12.800):
+    "\u5b58\u4e8e\u4e92\u8054\u7f51\u6863\u6848\u9986" (+32.68)  "enumi" (+31.62)  " DEP" (+28.38)  "\u6700\u5feb\u66f4\u65b0" (+25.74)  " getItemCount" (+24.85)  " Hou\u017fe" (+24.70)  " Efq" (+24.65)  "LOV" (+24.60)  " people" (+24.20)  " vaan" (+24.04)  " kysy" (+24.03)  "othelioma" (+23.79)  "paravant" (+23.74)  "enumii" (+23.55)  "ostante" (+23.35)  " ComVisible" (+23.28)  "CELLANEOUS" (+23.24)  "bourhood" (+23.17)  "gether" (+23.08)  " isComment" (+22.93)
+
+--- Per-layer AGGREGATE rare-context words (rare/topical vocabulary recurring across top-decreased features) ---
+  (n_features=15, n_contexts=120, zipf_cutoff=5.50)
+
+  L00:
+      acyclovir(n=4, z=2.04)  herodianus(n=2, z=0.00)  prompts(n=5, z=3.34)  dogpatch(n=2, z=1.61)  footrace(n=2, z=1.73)  thyroiditis(n=2, z=2.00)  sadie(n=3, z=3.26)  charan(n=2, z=2.36)  lottery(n=4, z=4.00)  paddocks(n=2, z=2.51)  constitution(n=6, z=4.56)  nathan's(n=2, z=2.71)  ucus(n=1, z=0.00)  toirdelbach(n=1, z=0.00)  tjoa(n=1, z=0.00)
+  L01:
+      cara-lengkap-dan-mudah-budidaya-jamur-tiram-putih(n=16, z=0.00)  ruangtani(n=8, z=0.00)  java(n=15, z=4.00)  cara-lengkap-dan-mudah-budidaya-jamur-tiram-p(n=4, z=0.00)  cara-lengkap-dan-mudah-budidaya-jamur-ti(n=4, z=0.00)  angtani(n=4, z=0.00)  com(n=17, z=4.22)  ssid(n=5, z=2.10)  toggle(n=7, z=3.09)  wpa(n=6, z=2.71)  ovuled(n=3, z=0.00)  kap-dan-mudah-budidaya-jamur-tiram-putih(n=3, z=0.00)  unreadable(n=5, z=2.62)  obovate(n=4, z=2.00)  klingon(n=5, z=2.90)
+  L02:
+      thyroiditis(n=7, z=2.00)  mulberries(n=5, z=1.89)  hypotheses(n=6, z=3.20)  biarthrodial(n=2, z=0.00)  onset(n=6, z=3.72)  roddick(n=3, z=2.38)  symptoms(n=9, z=4.48)  evolution(n=8, z=4.41)  phyletic(n=2, z=1.28)  muscle(n=7, z=4.44)  gradualism(n=2, z=1.83)  triclosan(n=2, z=1.98)  acyclovir(n=2, z=2.04)  aquaponics(n=2, z=2.07)  federer's(n=2, z=2.08)
+  L03:
+      ramnarayan(n=3, z=0.00)  intercomparison(n=3, z=1.52)  spsu(n=2, z=0.00)  saprang(n=2, z=0.00)  misomip(n=2, z=0.00)  semaphore(n=3, z=2.55)  paperbark(n=2, z=1.25)  wateraid(n=2, z=1.60)  bark(n=4, z=3.85)  checksum(n=2, z=2.27)  icts(n=2, z=2.37)  computational(n=3, z=3.62)  unenfranchised(n=1, z=0.00)  thavis(n=1, z=0.00)  klaes(n=1, z=0.00)
+  L04:
+      cloning(n=8, z=3.23)  kenjeran(n=2, z=0.00)  brantas(n=2, z=0.00)  flu(n=7, z=3.96)  oxytocin(n=4, z=2.83)  antiviral(n=4, z=2.83)  thyroiditis(n=3, z=2.00)  esports(n=4, z=3.21)  snookers(n=2, z=1.29)  plaque(n=4, z=3.69)  federer(n=3, z=3.22)  depends(n=7, z=4.53)  diagnoses(n=3, z=3.24)  hormone(n=4, z=3.82)  scientology(n=3, z=3.31)
+  L05:
+      tagliare(n=2, z=0.00)  narvesen(n=2, z=0.00)  intagliare(n=2, z=0.00)  abnegate(n=2, z=0.00)  abduce(n=2, z=0.00)  injectable(n=3, z=2.60)  prompts(n=4, z=3.34)  abecedarian(n=2, z=1.32)  succumb(n=3, z=3.06)  supergiant(n=2, z=1.94)  circumvent(n=3, z=3.15)  lens(n=5, z=4.17)  pdas(n=2, z=2.18)  gloom(n=3, z=3.31)  deficiencies(n=3, z=3.34)
+  L06:
+      tuft(n=4, z=2.56)  tecquipment(n=2, z=0.00)  conspicuous(n=4, z=3.35)  buff-colored(n=4, z=3.49)  kangaroo(n=4, z=3.50)  inflammation(n=4, z=3.73)  obovate(n=2, z=2.00)  federer(n=3, z=3.22)  decay(n=4, z=3.83)  abiotic(n=2, z=2.37)  jaywalking(n=2, z=2.42)  berkshire(n=3, z=3.51)  fur(n=4, z=4.03)  ovate(n=2, z=2.58)  tip(n=6, z=4.55)
+  L07:
+      cloning(n=18, z=3.23)  nameday(n=3, z=1.37)  bronzino(n=3, z=1.50)  braathens(n=2, z=0.00)  allmyr(n=2, z=0.00)  mulberries(n=3, z=1.89)  informality(n=3, z=2.21)  castor(n=4, z=3.18)  herpes(n=4, z=3.35)  agnolo(n=2, z=1.36)  walkersville(n=2, z=1.44)  woodsboro(n=2, z=1.60)  medicine(n=10, z=4.73)  herodian(n=2, z=1.75)  highway's(n=2, z=1.89)
+  L08:
+      isospin(n=6, z=1.62)  kritis(n=4, z=0.00)  kirtanas(n=4, z=0.00)  biarthrodial(n=4, z=0.00)  federer(n=6, z=3.22)  abecedarian(n=3, z=1.32)  abib(n=3, z=1.42)  viruttams(n=2, z=0.00)  varnams(n=2, z=0.00)  tillanas(n=2, z=0.00)  swarajatis(n=2, z=0.00)  rogeria(n=2, z=0.00)  kutcheri(n=2, z=0.00)  anhydrobiosis(n=2, z=0.00)  abduce(n=2, z=0.00)
+  L09:
+      agnolo(n=9, z=1.36)  allori(n=4, z=0.00)  firecrest(n=5, z=1.59)  heatstroke(n=6, z=2.31)  thyroiditis(n=4, z=2.00)  brave(n=11, z=4.33)  mannerist(n=3, z=1.80)  kritis(n=2, z=0.00)  kirtanas(n=2, z=0.00)  chevaliers(n=3, z=1.84)  subtropical(n=4, z=2.92)  tori(n=4, z=3.19)  designation(n=5, z=3.76)  kilometres(n=5, z=3.77)  retard(n=4, z=3.37)
+  L10:
+      braathens(n=3, z=0.00)  thyroiditis(n=4, z=2.00)  neuroplasticity(n=4, z=2.09)  mohenjo-daro(n=3, z=1.87)  indus(n=4, z=3.08)  edn(n=3, z=2.63)  hno(n=2, z=1.39)  niter(n=2, z=1.45)  flak(n=3, z=3.06)  sarajevo(n=3, z=3.10)  bulloch(n=2, z=1.99)  fingal(n=2, z=2.08)  etched(n=3, z=3.26)  checksum(n=2, z=2.27)  heatstroke(n=2, z=2.31)
+  L11:
+      environmentalism(n=9, z=2.69)  pestis(n=7, z=2.02)  osteopenia(n=4, z=1.72)  thyroiditis(n=4, z=2.00)  tecquipment(n=2, z=0.00)  herodianus(n=2, z=0.00)  yersinia(n=3, z=2.05)  bacterium(n=4, z=3.05)  farthest(n=4, z=3.06)  crocidolite(n=2, z=1.16)  agnolo(n=2, z=1.36)  horsepower(n=4, z=3.49)  diabetes(n=6, z=4.17)  aphelion(n=2, z=1.79)  acyclovir(n=2, z=2.04)
+  L12:
+      thyroiditis(n=6, z=2.00)  sadie(n=5, z=3.26)  coaches'polls(n=2, z=0.00)  naep(n=3, z=1.91)  perihelion(n=3, z=2.18)  hawkins(n=5, z=3.64)  inflammation(n=5, z=3.73)  vindolanda(n=2, z=1.37)  aphelion(n=2, z=1.79)  farthest(n=3, z=3.06)  hollinger(n=2, z=2.18)  flu(n=4, z=3.96)  cardiopulmonary(n=2, z=2.49)  electromechanical(n=2, z=2.55)  carrot(n=3, z=3.62)
+  L13:
+      silbury(n=3, z=1.32)  isospinic(n=2, z=0.00)  bee(n=6, z=4.09)  wpa(n=3, z=2.71)  hudhud(n=2, z=1.36)  ifugao(n=2, z=1.55)  coneflower(n=2, z=1.57)  pulley(n=3, z=2.92)  costantino(n=2, z=1.70)  bumble(n=3, z=2.97)  purpurea(n=2, z=2.06)  echinacea(n=2, z=2.14)  heliport(n=2, z=2.21)  semaphore(n=2, z=2.55)  electrons(n=3, z=3.60)
+  L14:
+      chambered(n=4, z=2.61)  yesno(n=2, z=0.00)  ruszczyc(n=2, z=0.00)  nishnawbe(n=2, z=0.00)  ferdynand(n=2, z=0.00)  bacolas(n=2, z=0.00)  heliport(n=3, z=2.21)  electropolishing(n=2, z=1.07)  silbury(n=2, z=1.32)  agnolo(n=2, z=1.36)  nanotubes(n=3, z=2.74)  aski(n=2, z=1.63)  microelectrodes(n=2, z=1.70)  mannerist(n=2, z=1.80)  tpms(n=2, z=1.82)
+  L15:
+      vvti(n=2, z=0.00)  horsepower(n=4, z=3.49)  fingal(n=2, z=2.08)  aisi(n=2, z=2.12)  graben(n=2, z=2.15)  bearded(n=3, z=3.34)  heatstroke(n=2, z=2.31)  galvanic(n=2, z=2.37)  berkshire(n=3, z=3.51)  states'primaries(n=1, z=0.00)  kenjeran(n=1, z=0.00)  inswing(n=1, z=0.00)  buzzway(n=1, z=0.00)  brantas(n=1, z=0.00)  australians'misfortune(n=1, z=0.00)
+  L16:
+      inflammation(n=6, z=3.73)  heliport(n=3, z=2.21)  glucose(n=5, z=3.75)  silbury(n=2, z=1.32)  shaklee(n=2, z=1.51)  deciduous(n=3, z=3.01)  chromium(n=3, z=3.14)  triclosan(n=2, z=1.98)  zaitsev(n=2, z=2.05)  esports(n=3, z=3.21)  unnoticeable(n=2, z=2.11)  metres(n=5, z=4.17)  rowan(n=3, z=3.32)  reviewer(n=3, z=3.47)  magnesium(n=3, z=3.49)
+  L17:
+      neuroplasticity(n=4, z=2.09)  veeru's(n=2, z=0.00)  spsu(n=2, z=0.00)  snooker(n=4, z=3.03)  roman's(n=3, z=2.43)  symmetry(n=4, z=3.51)  periodic(n=4, z=3.63)  brain(n=13, z=4.94)  elliot(n=4, z=3.74)  syncopated(n=2, z=2.26)  geoff(n=3, z=3.58)  potting(n=2, z=2.71)  odaenathus'eldest(n=1, z=0.00)  nuad(n=1, z=0.00)  narvesen(n=1, z=0.00)
+  L18:
+      wpa(n=9, z=2.71)  federer(n=6, z=3.22)  curvature(n=6, z=3.22)  naugle(n=3, z=1.32)  roddick(n=4, z=2.38)  sampras's(n=2, z=0.00)  portraiture(n=4, z=2.83)  lenses(n=6, z=3.77)  farthest(n=4, z=3.06)  allred(n=3, z=2.40)  environmentalism(n=3, z=2.69)  purposely(n=4, z=3.44)  oron(n=2, z=1.64)  ncca(n=2, z=1.64)  osteopenia(n=2, z=1.72)
+  L19:
+      zaitsev(n=5, z=2.05)  spherical(n=6, z=3.39)  threefold(n=4, z=2.69)  canon(n=8, z=4.11)  vvti(n=2, z=0.00)  cara-lengkap-dan-mudah-budidaya-jamur-tiram-putih(n=2, z=0.00)  braathens(n=2, z=0.00)  thyroiditis(n=3, z=2.00)  pestis(n=3, z=2.02)  transaction(n=8, z=4.21)  lens(n=7, z=4.17)  macro(n=5, z=3.71)  lenses(n=5, z=3.77)  repetition(n=4, z=3.48)  osteopenia(n=2, z=1.72)
+  L20:
+      isn(n=8, z=3.05)  federer(n=7, z=3.22)  spudman(n=2, z=0.00)  medterms(n=2, z=0.00)  coaches'polls(n=2, z=0.00)  biarthrodial(n=2, z=0.00)  abnegate(n=2, z=0.00)  thyroiditis(n=3, z=2.00)  un-boarded(n=5, z=3.44)  edema(n=4, z=2.95)  heliport(n=3, z=2.21)  metres(n=7, z=4.17)  traits(n=6, z=3.96)  yards(n=9, z=4.51)  boarded(n=4, z=3.47)
+  L21:
+      drago(n=15, z=2.66)  snooker(n=12, z=3.03)  player's(n=14, z=3.59)  proficiency(n=11, z=3.43)  norwood(n=9, z=3.22)  heatstroke(n=4, z=2.31)  guinness(n=6, z=3.49)  achieved(n=11, z=4.49)  wilhelm(n=5, z=3.31)  recorded(n=12, z=4.66)  break(n=20, z=5.18)  widely(n=9, z=4.54)  breaks(n=8, z=4.46)  intrinsic(n=4, z=3.47)  tony(n=9, z=4.64)
+  L22:
+      inswing(n=4, z=0.00)  federer(n=7, z=3.22)  roddick(n=5, z=2.38)  electromechanical(n=5, z=2.55)  ozploitation(n=2, z=0.00)  federer's(n=3, z=2.08)  bowlers(n=4, z=3.13)  hydroponics(n=3, z=2.35)  lbw(n=3, z=2.43)  slam(n=6, z=4.02)  combines(n=5, z=3.73)  engineering(n=12, z=4.80)  shaklee(n=2, z=1.51)  papert(n=2, z=1.70)  wimbledon(n=4, z=3.61)
+  L23:
+      misomip(n=3, z=0.00)  mismip(n=3, z=0.00)  tidewater(n=5, z=2.58)  federer(n=6, z=3.22)  glaciers(n=6, z=3.31)  simulations(n=6, z=3.51)  spudman(n=2, z=0.00)  isomip(n=2, z=0.00)  dielectrophoresis(n=2, z=0.00)  projections(n=6, z=3.71)  marine(n=10, z=4.53)  abiotic(n=3, z=2.37)  roddick(n=3, z=2.38)  nanotube(n=3, z=2.40)  nanotubes(n=3, z=2.74)
+  L24:
+      checksum(n=10, z=2.27)  nathan's(n=7, z=2.71)  agnolo(n=4, z=1.36)  krb(n=3, z=1.04)  feso(n=2, z=0.00)  perihelion(n=3, z=2.18)  metres(n=7, z=4.17)  charities(n=5, z=3.83)  bronzino(n=2, z=1.50)  firecrest(n=2, z=1.59)  checksums(n=2, z=1.71)  awareness(n=7, z=4.44)  mannerist(n=2, z=1.80)  pestis(n=2, z=2.02)  heatstroke(n=2, z=2.31)
+  L25:
+      bruie(n=8, z=0.00)  osteoporosis(n=7, z=2.99)  teeth(n=17, z=4.58)  osteopenia(n=4, z=1.72)  decay(n=7, z=3.83)  encyclopedia's(n=2, z=1.10)  tooth(n=6, z=4.08)  vuvuzelas(n=2, z=1.64)  space-savers(n=3, z=2.97)  pre-osteopenia(n=2, z=1.72)  buoyant(n=3, z=2.98)  obovate(n=2, z=2.00)  athletics(n=4, z=3.82)  corrective(n=3, z=3.29)  informality(n=2, z=2.21)
+
+--- GLOBAL AGGREGATE rare-context words (pooled across all top-20 cross-layer features) ---
+  (n_features=20, n_contexts=160, zipf_cutoff=5.50):
+    brave(n=13, z=4.33)  neuroplasticity(n=4, z=2.09)  tuft(n=4, z=2.56)  kritis(n=2, z=0.00)  kirtanas(n=2, z=0.00)  allmyr(n=2, z=0.00)  toenails(n=4, z=2.81)  decay(n=6, z=3.83)  castor(n=4, z=3.18)  inflammation(n=5, z=3.73)  prompts(n=4, z=3.34)  conspicuous(n=4, z=3.35)  retard(n=4, z=3.37)  nan(n=4, z=3.49)  buff-colored(n=4, z=3.49)
+
+========================================================================
+Respond with a single JSON object and nothing else, using exactly these keys:
+
+{
+  "concept_rationale": "<1-3 sentences executing Step 1: outlining the exact semantic intersection and referencing specific supporting features/contexts>",
+  "likely_unlearned_concept": "<1-5 words executing Step 2: the concrete name of the precise targeted concept>",
+  "unlearning_confidence": <integer 0-100 executing Step 3: your calibrated confidence score based strictly on the rationale generated above>,
+  "alternative_hypotheses": "<1-2 sentences listing other highly specific alternative targets that align with the features, or null>",
+  "notes": "<optional short caveat or null>"
+}
