@@ -45,7 +45,7 @@ source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 # 3. Configuration Resolution
 # ------------------------------------------------------------------------------
 # Default fallback to Gemma-2-2B-it RMU audit config if AUDIT_CONFIG is missing.
-DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/rmu/gemma2_2b_it/rel_delta/ancient_rome.yaml"
+DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma2_2b_it/rmu/rel_delta/ancient_rome.yaml"
 CONFIG="${AUDIT_CONFIG:-$DEFAULT_CONFIG}"
 
 echo "[audit] Infrastructure initialization complete."
