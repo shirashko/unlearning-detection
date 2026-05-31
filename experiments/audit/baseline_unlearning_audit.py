@@ -426,6 +426,7 @@ def _audit_one_layer_raw(
             context_window=context_window,
         )
         rec = dict(per_latent[int(i)])
+        rec["latent_idx"] = int(i)
         rec["top_contexts"] = ctxs
         if int(i) in top_vocab_per_neuron:
             rec["top_vocab_base"] = top_vocab_per_neuron[int(i)]
