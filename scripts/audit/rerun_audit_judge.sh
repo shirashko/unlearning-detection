@@ -4,7 +4,7 @@
 # ==============================================================================
 #
 # With audit YAML (uses output_dir + judge section from config):
-#   AUDIT_CONFIG="configs/audit/pisces/gemma2_2b_it/rel_delta/ancient_rome.yaml" \
+#   AUDIT_CONFIG="configs/audit/gemma2_2b_it/pisces/rel_delta/ancient_rome.yaml" \
 #     sbatch scripts/audit/rerun_audit_judge.sh
 #
 # With explicit output directory:
@@ -30,7 +30,7 @@ export REPO_ROOT="${REPO_ROOT:-/home/morg/students/rashkovits/unlearning-detecti
 # shellcheck source=scripts/audit/audit_runner_env.sh
 source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 
-DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/pisces/gemma2_2b_it/rel_delta/ancient_rome.yaml"
+DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma2_2b_it/pisces/rel_delta/ancient_rome.yaml"
 CONFIG="${AUDIT_CONFIG:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
 
