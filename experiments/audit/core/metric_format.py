@@ -13,6 +13,9 @@ LATENT_METRIC_KEYS = (
     "mean_Y_candidate",
     "rel_delta",
     "abs_rel_delta",
+    "peak_profile_l2",
+    "peak_profile_cosine_dist",
+    "normalized_peak_profile_l2",
 )
 
 PER_LAYER_SUMMARY_METRIC_KEYS = (

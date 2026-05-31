@@ -16,8 +16,8 @@ from experiments.audit.core.metric_format import round_audit_metric
 from experiments.audit.core.rankers import (
     REL_DELTA_EPS,
     RankerFactory,
-    MeanPeakUnlearningMetrics,
-    compute_mean_peak_metrics,
+    LatentUnlearningMetrics,
+    compute_latent_unlearning_metrics,
 )
 
 
@@ -51,7 +51,7 @@ class LayerAuditor:
 
         mean_base = Y_base_max.mean(axis=0)
         mean_cand = Y_cand_max.mean(axis=0)
-        m = compute_mean_peak_metrics(mean_base, mean_cand, eps=REL_DELTA_EPS)
+        m = compute_latent_unlearning_metrics(Y_base_max, Y_cand_max, eps=REL_DELTA_EPS)
         scores = self.ranker.ranking_vector(m)
 
         K = int(Z.shape[1])
@@ -82,8 +82,11 @@ class LayerAuditor:
         layer_idx: int,
     ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Per-latent table, CSV rows, rel_delta stats, and JSON base minus ``top_decreased_latents``."""
-        m: MeanPeakUnlearningMetrics = core["metrics"]
-        rel_delta, abs_rel_delta = m
+        m: LatentUnlearningMetrics = core["metrics"]
+        rel_delta, abs_rel_delta = m.rel_delta, m.abs_rel_delta
+        peak_profile_l2 = m.peak_profile_l2
+        peak_profile_cosine_dist = m.peak_profile_cosine_dist
+        normalized_peak_profile_l2 = m.normalized_peak_profile_l2
         mean_base = core["mean_base"]
         mean_cand = core["mean_candidate"]
         K = int(core["K"])
@@ -94,17 +97,21 @@ class LayerAuditor:
         per_latent: Dict[int, Dict[str, Any]] = {}
         rows: List[Dict[str, Any]] = []
         for i in range(K):
-            rec = {
-                "latent_idx": i,
+            metrics = {
                 "mean_Y_base": round_audit_metric(float(mean_base[i])),
                 "mean_Y_candidate": round_audit_metric(float(mean_cand[i])),
                 "rel_delta": round_audit_metric(float(rel_delta[i])),
                 "abs_rel_delta": round_audit_metric(float(abs_rel_delta[i])),
+                "peak_profile_l2": round_audit_metric(float(peak_profile_l2[i])),
+                "peak_profile_cosine_dist": round_audit_metric(
+                    float(peak_profile_cosine_dist[i]),
+                ),
+                "normalized_peak_profile_l2": round_audit_metric(
+                    float(normalized_peak_profile_l2[i]),
+                ),
             }
-            per_latent[i] = rec
-            row = dict(rec)
-            row["layer"] = layer_idx
-            rows.append(row)
+            per_latent[i] = metrics
+            rows.append({"latent_idx": i, "layer": layer_idx, **metrics})
 
         rel_delta_stats = {
             "mean": round_audit_metric(float(rel_delta.mean())),

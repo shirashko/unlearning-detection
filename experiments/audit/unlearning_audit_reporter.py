@@ -65,11 +65,18 @@ class UnlearningAuditReporter:
         )
         fmt_rare = UnlearningAuditReporter.format_rare_words
         for k, rec in enumerate(global_top, start=1):
+            rank_score = float(rec.get(rank_by, 0.0))
+            rank_fmt = f"{rank_score:+.4f}" if rank_by == "rel_delta" else f"{rank_score:.4f}"
             parts.append(
                 f"[{k}] layer L{rec['layer']}, latent {rec['latent_idx']} | "
-                f"rel_delta={rec.get('rel_delta', 0.0):+.4f}  "
-                f"abs_rel_delta={rec.get('abs_rel_delta', 0.0):.4f} | "
-                f"mean_base={rec['mean_Y_base']:.4f}  "
+                f"{rank_by}={rank_fmt} | "
+                f"rel_delta={rec.get('rel_delta', 0.0):+.4f} | "
+                f"peak_profile_l2={rec.get('peak_profile_l2', 0.0):.4f} | "
+                f"normalized_peak_profile_l2="
+                f"{rec.get('normalized_peak_profile_l2', 0.0):.4f} | "
+                f"peak_profile_cosine_dist="
+                f"{rec.get('peak_profile_cosine_dist', 0.0):.4f} | "
+                f"mean_base={rec['mean_Y_base']:.4f} / "
                 f"mean_candidate={rec['mean_Y_candidate']:.4f}"
             )
 

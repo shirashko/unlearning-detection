@@ -48,7 +48,7 @@ from experiments.audit.core.projection import SubspaceProjector, per_prompt_peak
 from experiments.audit.core.rankers import (
     REL_DELTA_EPS,
     RankerFactory,
-    compute_mean_peak_metrics,
+    compute_latent_unlearning_metrics,
     global_top_features,
 )
 from experiments.audit.general_unlearning_audit import (
@@ -96,7 +96,7 @@ def validate_baseline_audit_config(
     if missing:
         raise ValueError("Missing required config fields: " + ", ".join(missing))
 
-    if cfg.snmf.rank_by not in ("rel_delta", "abs_rel_delta"):
+    if cfg.snmf.rank_by not in RankerFactory._rankers:
         raise ValueError(f"Invalid rank_by={cfg.snmf.rank_by!r}")
     if cfg.snmf.mode != "mlp_intermediate":
         raise ValueError(
@@ -349,7 +349,7 @@ def _audit_one_layer_raw(
 
     mean_base = Y_base_max.mean(axis=0)
     mean_cand = Y_cand_max.mean(axis=0)
-    m = compute_mean_peak_metrics(mean_base, mean_cand, eps=REL_DELTA_EPS)
+    m = compute_latent_unlearning_metrics(Y_base_max, Y_cand_max, eps=REL_DELTA_EPS)
     ranker = RankerFactory.get_ranker(cfg.snmf.rank_by)
     scores = ranker.ranking_vector(m)
 

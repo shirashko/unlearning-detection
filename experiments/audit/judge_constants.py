@@ -30,6 +30,9 @@ Second, for every single top feature in the report you will see:
 
       CRITICAL: Treat high positive rel_delta as your primary indicator of a targeted latent feature. This relative metric prioritizes the complete suppression of low-baseline niche concepts over minor absolute drops in heavy structural features.
   * abs_rel_delta = |rel_delta| (magnitude of fractional change).
+  * peak_profile_l2: Raw L2 distance between the per-prompt peak activation vectors of M_base vs M_candidate (not normalized by base magnitude).
+  * normalized_peak_profile_l2: ||Y_base_max[:, i] - Y_cand_max[:, i]||_2 / (||Y_base_max[:, i]||_2 + 1e-9). Treat this as the fractional energy shift of the per-prompt activation profile. A value near 1.0 means the candidate profile diverged by ~100% relative to the base profile scale — e.g. a weak niche feature fully erased ranks above heavy structural features that moved only a few percent.
+  * peak_profile_cosine_dist: 1 - cosine_similarity between those same per-prompt peak vectors. High values mean the prompt-level activation pattern shifted directionally, not just in magnitude.
   * top-activating contexts: A small set of sample text windows where this specific feature activates 
     most strongly. The exact token causing the peak activation is wrapped in **double_asterisks**. 
     (This represents the INPUT side: it defines the exact semantic or syntactic stimuli that trigger 

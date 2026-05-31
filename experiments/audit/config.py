@@ -11,7 +11,13 @@ from experiments.train.train import parse_int_list
 
 DEFAULT_CONTEXT_RARE_ZIPF_CUTOFF: float = 5.5
 
-RankBy = Literal["rel_delta", "abs_rel_delta"]
+RankBy = Literal[
+    "rel_delta",
+    "abs_rel_delta",
+    "peak_profile_l2",
+    "peak_profile_cosine_dist",
+    "normalized_peak_profile_l2",
+]
 
 """
 mlp_intermediate corresponds to the matrix A (n_tokens, d_mlp), representing the MLP activations 
