@@ -87,7 +87,7 @@ class LogitLensConfig:
     lens_center_unembed: bool = True
     lens_mask_special_tokens: bool = True
     vocab_lens_aggregate_top_k: int = 20
-    lens_delta_weighted: bool = False
+    lens_delta_weighted: bool = True
 
 @dataclass
 class ContextRareConfig:
