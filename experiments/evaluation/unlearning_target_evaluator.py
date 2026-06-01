@@ -104,6 +104,13 @@ class UnlearningTargetEvaluator:
             ``None``; on API or parse errors both predictions are ``None``.
         """
         prompt = self._build_classification_prompt(hypothesis, text_sample)
+        return self._classify_with_prompt(prompt)
+
+    def _classify_with_prompt(
+        self,
+        prompt: str,
+    ) -> Tuple[Optional[bool], Optional[float], Optional[ClassificationFailure]]:
+        """Run classification on a pre-built prompt."""
         raw_text, error, _ = self.client.generate_text(prompt)
 
         if error or not raw_text:
@@ -251,6 +258,7 @@ class UnlearningTargetEvaluator:
 
         predicted_labels: List[Optional[int]] = []
         predicted_probabilities: List[Optional[float]] = []
+        sample_records: List[Dict[str, Any]] = []
         n_api_failures = 0
         n_parse_failures = 0
 
@@ -264,8 +272,9 @@ class UnlearningTargetEvaluator:
             len(test_texts),
         )
 
-        for text, label in zip(test_texts, y_true):
-            is_forget, prob, failure = self.classify_sample(hypothesis, text)
+        for index, (text, label) in enumerate(zip(test_texts, y_true)):
+            prompt = self._build_classification_prompt(hypothesis, text)
+            is_forget, prob, failure = self._classify_with_prompt(prompt)
             if failure == "api":
                 n_api_failures += 1
             elif failure == "parse":
@@ -274,6 +283,18 @@ class UnlearningTargetEvaluator:
             if failure is not None:
                 predicted_labels.append(None)
                 predicted_probabilities.append(None)
+                sample_records.append(
+                    {
+                        "index": index,
+                        "text": text,
+                        "prompt": prompt,
+                        "ground_truth": label,
+                        "ground_truth_class": "forget" if label == 1 else "retain",
+                        "predicted_label": None,
+                        "forget_probability": None,
+                        "failure": failure,
+                    }
+                )
                 continue
 
             assert is_forget is not None and prob is not None
@@ -282,6 +303,18 @@ class UnlearningTargetEvaluator:
             y_true_scored.append(label)
             y_pred_binary_scored.append(int(is_forget))
             y_pred_prob_scored.append(prob)
+            sample_records.append(
+                {
+                    "index": index,
+                    "text": text,
+                    "prompt": prompt,
+                    "ground_truth": label,
+                    "ground_truth_class": "forget" if label == 1 else "retain",
+                    "predicted_label": int(is_forget),
+                    "forget_probability": prob,
+                    "failure": None,
+                }
+            )
 
         y_true_np = np.array(y_true, dtype=int)
         y_true_scored_np = np.array(y_true_scored, dtype=int)
@@ -313,4 +346,5 @@ class UnlearningTargetEvaluator:
             "ground_truth": y_true_np.tolist(),
             "predicted_labels": predicted_labels,
             "predicted_probabilities": predicted_probabilities,
+            "samples": sample_records,
         }
