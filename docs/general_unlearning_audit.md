@@ -28,7 +28,7 @@ Use this when:
    - **Per-layer:** `r_L = W_down_L @ ( Σ_i w_i · F_L[:, i] )` over the layer’s top-decreased latents.
    - **Global:** `r_global = Σ_L W_down_L @ ( Σ_i w_i · F_L[:, i] )` over all (layer, latent) pairs in the cross-layer top set.
 
-   Both go through the same `final_norm` + `lm_head` + topk. `w_i` defaults to the feature’s delta (size of the base→candidate drop), so the aggregate is the “what was pushed away” direction; `--no-lens-delta-weighted` switches to a uniform sum.
+   Both go through the same `final_norm` + `lm_head` + topk. By default, `w_i` is the feature’s `rank_by` score (e.g. rel_delta), so the aggregate emphasizes the most-changed features. `--no-lens-delta-weighted` switches to a uniform sum.
 
 9. Pack a single message for a judge LLM (Gemini 2.5 Flash by default) asking two things:
    - (a) what concept does this most plausibly look like the unlearned one
