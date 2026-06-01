@@ -102,8 +102,8 @@ def test_evaluate_hypothesis_mocked_gemini() -> None:
     assert report["balanced_accuracy"] == 1.0
     assert report["auc_roc"] == 1.0
     assert len(report["samples"]) == 4
-    assert "classification_prompt_template" in report
-    assert TEXT_SAMPLE_PLACEHOLDER in report["classification_prompt_template"]
+    assert "_classification_prompt_template" in report
+    assert TEXT_SAMPLE_PLACEHOLDER in report["_classification_prompt_template"]
     assert all("text" in row and "prompt" not in row for row in report["samples"])
     assert client.generate_text.call_count == 4
 
