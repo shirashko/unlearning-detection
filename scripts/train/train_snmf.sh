@@ -14,22 +14,12 @@
 #SBATCH --mail-user=rashkovits@mail.tau.ac.il
 #SBATCH --mail-type=BEGIN,END,FAIL
 
-# --- Environment Setup ---
-source /home/morg/students/rashkovits/miniconda3/etc/profile.d/conda.sh
-conda activate /home/morg/students/rashkovits/envs/snmf_env
+set -euo pipefail
 
-# --- Space & Cache Management ---
-export HF_HOME="/home/morg/students/rashkovits/hf_cache"
-export TORCH_HOME="/home/morg/students/rashkovits/hf_cache/torch"
-export TMPDIR="/home/morg/students/rashkovits/hf_cache"
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# --- Project Setup (unlearning-detection checkout) ---
-REPO_ROOT="${REPO_ROOT:-/home/morg/students/rashkovits/unlearning-detection}"
-cd "$REPO_ROOT"
-export PYTHONPATH="${PYTHONPATH:-}:$(pwd)"
-
-# shellcheck source=scripts/audit/audit_runner_env.sh
-source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
+# shellcheck source=../audit/audit_runner_env.sh
+source "${_SCRIPT_DIR}/../audit/audit_runner_env.sh"
 
 # Defaults target the Gemma-2-2b-it setup (HF repo id + HF_HUB_CACHE from audit_runner_env.sh).
 MODEL_PATH="${MODEL_PATH:-${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b-it}}"
@@ -51,27 +41,32 @@ mkdir -p logs "$OUTPUT_DIR" $HF_HOME
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
+SCRIPT_TAG="[${0##*/}]"
+
 # --- GPU Preflight ---
 if [[ "$REQUIRE_GPU" == "1" ]]; then
   if ! command -v nvidia-smi >/dev/null 2>&1; then
-    echo "[train_snmf.sh] REQUIRE_GPU=1 but nvidia-smi is unavailable."
+    echo "${SCRIPT_TAG} REQUIRE_GPU=1 but nvidia-smi is unavailable."
     exit 1
   fi
   if ! nvidia-smi -L >/dev/null 2>&1; then
-    echo "[train_snmf.sh] REQUIRE_GPU=1 but no visible NVIDIA GPU."
+    echo "${SCRIPT_TAG} REQUIRE_GPU=1 but no visible NVIDIA GPU."
     exit 1
   fi
-  python3 - <<'PY'
+  SCRIPT_TAG="$SCRIPT_TAG" python3 - <<'PY'
+import os
 import sys
 import torch
+
+tag = os.environ.get("SCRIPT_TAG", "[train_snmf]")
 if not torch.cuda.is_available():
-    print("[train_snmf.sh] torch.cuda.is_available() is False.")
+    print(f"{tag} torch.cuda.is_available() is False.")
     sys.exit(1)
 major, minor = torch.cuda.get_device_capability(0)
 if major < 7:
-    print(f"[train_snmf.sh] Unsupported CUDA capability sm_{major}{minor}; expected sm_70+.")
+    print(f"{tag} Unsupported CUDA capability sm_{major}{minor}; expected sm_70+.")
     sys.exit(1)
-print(f"[train_snmf.sh] CUDA ready on {torch.cuda.get_device_name(0)} (sm_{major}{minor}).")
+print(f"{tag} CUDA ready on {torch.cuda.get_device_name(0)} (sm_{major}{minor}).")
 PY
 fi
 
