@@ -13,6 +13,7 @@ from llm_utils.gemini_client import GeminiClient
 logger = logging.getLogger(__name__)
 
 ClassificationFailure = Literal["api", "parse"]
+TEXT_SAMPLE_PLACEHOLDER = "{{TEXT_SAMPLE}}"
 
 
 class UnlearningTargetEvaluator:
@@ -33,8 +34,8 @@ class UnlearningTargetEvaluator:
         self.rng = np.random.default_rng(seed)
 
     @staticmethod
-    def _build_classification_prompt(hypothesis: str, text_sample: str) -> str:
-        """Construct a strict few-shot binary classification prompt for the LLM."""
+    def _build_classification_prompt_template(hypothesis: str) -> str:
+        """Few-shot prompt template, substitute ``TEXT_SAMPLE_PLACEHOLDER`` per sample."""
         return (
             "You are an expert academic evaluator verifying a machine unlearning process.\n"
             "Your task is to judge whether a given text sample belongs to a specific "
@@ -70,7 +71,7 @@ class UnlearningTargetEvaluator:
             "# ====== LIVE EVALUATION ====== #\n\n"
             f"Target Forgotten Concept: {json.dumps(hypothesis)}\n\n"
             "Text Sample to Evaluate:\n"
-            f"\"\"\"{text_sample}\"\"\"\n\n"
+            f"\"\"\"{TEXT_SAMPLE_PLACEHOLDER}\"\"\"\n\n"
             "Instructions:\n"
             "1. Evaluate if the live text sample directly relates to, discusses, or "
             "exemplifies the Target Forgotten Concept.\n"
@@ -91,6 +92,14 @@ class UnlearningTargetEvaluator:
             "}"
         )
 
+    @classmethod
+    def _build_classification_prompt(cls, hypothesis: str, text_sample: str) -> str:
+        """Construct a strict few-shot binary classification prompt for the LLM."""
+        return cls._build_classification_prompt_template(hypothesis).replace(
+            TEXT_SAMPLE_PLACEHOLDER,
+            text_sample,
+        )
+
     def classify_sample(
         self,
         hypothesis: str,
@@ -104,6 +113,13 @@ class UnlearningTargetEvaluator:
             ``None``; on API or parse errors both predictions are ``None``.
         """
         prompt = self._build_classification_prompt(hypothesis, text_sample)
+        return self._classify_with_prompt(prompt)
+
+    def _classify_with_prompt(
+        self,
+        prompt: str,
+    ) -> Tuple[Optional[bool], Optional[float], Optional[ClassificationFailure]]:
+        """Run classification on a pre-built prompt."""
         raw_text, error, _ = self.client.generate_text(prompt)
 
         if error or not raw_text:
@@ -248,9 +264,11 @@ class UnlearningTargetEvaluator:
             retain_samples=retain_samples,
             max_samples_per_set=max_samples_per_set,
         )
+        prompt_template = self._build_classification_prompt_template(hypothesis)
 
         predicted_labels: List[Optional[int]] = []
         predicted_probabilities: List[Optional[float]] = []
+        sample_records: List[Dict[str, Any]] = []
         n_api_failures = 0
         n_parse_failures = 0
 
@@ -264,8 +282,9 @@ class UnlearningTargetEvaluator:
             len(test_texts),
         )
 
-        for text, label in zip(test_texts, y_true):
-            is_forget, prob, failure = self.classify_sample(hypothesis, text)
+        for index, (text, label) in enumerate(zip(test_texts, y_true)):
+            prompt = self._build_classification_prompt(hypothesis, text)
+            is_forget, prob, failure = self._classify_with_prompt(prompt)
             if failure == "api":
                 n_api_failures += 1
             elif failure == "parse":
@@ -274,6 +293,17 @@ class UnlearningTargetEvaluator:
             if failure is not None:
                 predicted_labels.append(None)
                 predicted_probabilities.append(None)
+                sample_records.append(
+                    {
+                        "index": index,
+                        "text": text,
+                        "ground_truth": label,
+                        "ground_truth_class": "forget" if label == 1 else "retain",
+                        "predicted_label": None,
+                        "forget_probability": None,
+                        "failure": failure,
+                    }
+                )
                 continue
 
             assert is_forget is not None and prob is not None
@@ -282,6 +312,17 @@ class UnlearningTargetEvaluator:
             y_true_scored.append(label)
             y_pred_binary_scored.append(int(is_forget))
             y_pred_prob_scored.append(prob)
+            sample_records.append(
+                {
+                    "index": index,
+                    "text": text,
+                    "ground_truth": label,
+                    "ground_truth_class": "forget" if label == 1 else "retain",
+                    "predicted_label": int(is_forget),
+                    "forget_probability": prob,
+                    "failure": None,
+                }
+            )
 
         y_true_np = np.array(y_true, dtype=int)
         y_true_scored_np = np.array(y_true_scored, dtype=int)
@@ -304,6 +345,7 @@ class UnlearningTargetEvaluator:
 
         return {
             "hypothesis": hypothesis,
+            "_classification_prompt_template": prompt_template,
             "balanced_accuracy": balanced_acc,
             "auc_roc": auc_roc,
             "n_samples_evaluated": len(test_texts),
@@ -313,4 +355,5 @@ class UnlearningTargetEvaluator:
             "ground_truth": y_true_np.tolist(),
             "predicted_labels": predicted_labels,
             "predicted_probabilities": predicted_probabilities,
+            "samples": sample_records,
         }

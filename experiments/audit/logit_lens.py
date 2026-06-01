@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import torch
 
+from experiments.audit.core.metric_format import round_audit_logit
 from experiments.audit.special_tokens import (
     LOGIT_LENS_SPECIAL_TOKEN_PATTERNS,
     LOGIT_LENS_SPECIAL_TOKEN_PREFIXES,
@@ -112,7 +113,11 @@ class LogitLens:
         ids = top_ids.detach().cpu().tolist()
         vals = top_vals.detach().cpu().tolist()
         return [
-            {"token_id": int(tid), "token": tokenizer.decode([int(tid)]), "logit": float(v)}
+            {
+                "token_id": int(tid),
+                "token": tokenizer.decode([int(tid)]),
+                "logit": round_audit_logit(float(v)),
+            }
             for tid, v in zip(ids, vals)
         ]
 
@@ -200,7 +205,7 @@ class LogitLens:
                 {
                     "token_id": int(tid),
                     "token": tokenizer.decode([int(tid)]),
-                    "logit": float(v),
+                    "logit": round_audit_logit(float(v)),
                 }
                 for tid, v in zip(top_ids_cpu[b_idx], top_vals_cpu[b_idx])
             ]

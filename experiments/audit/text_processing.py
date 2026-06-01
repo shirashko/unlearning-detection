@@ -5,6 +5,7 @@ import numpy as np
 import torch
 
 from experiments.audit.context_windows import _marked_context_text
+from experiments.audit.core.metric_format import round_audit_metric
 from experiments.audit.special_tokens import RARE_WORD_SPECIAL_TOKEN_DENYLIST
 
 try:
@@ -80,7 +81,12 @@ def rare_word_ranking_from_contexts(
         return []
     scored.sort(reverse=True)
     return [
-        {"word": w, "count": int(c), "zipf": float(-neg_z), "score": float(s)}
+        {
+            "word": w,
+            "count": int(c),
+            "zipf": round_audit_metric(float(-neg_z)),
+            "score": round_audit_metric(float(s)),
+        }
         for s, neg_z, c, w in scored[:top_n]
     ]
 
@@ -138,7 +144,7 @@ def top_contexts_for_latent(
             continue
         seen_keys.add(key)
         out.append({
-            "activation": float(row[gi_int]),
+            "activation": round_audit_metric(float(row[gi_int])),
             "sample_id": sid,
             "context": ctx,
         })

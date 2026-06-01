@@ -35,7 +35,7 @@ lens:
   lens_center_unembed: true
   lens_mask_special_tokens: true
   vocab_lens_aggregate_top_k: 20
-  lens_delta_weighted: false
+  lens_delta_weighted: true
 
 rare:
   context_rare_top_n: 15

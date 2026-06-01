@@ -1,26 +1,30 @@
 #!/bin/bash
 # ==============================================================================
-# Unified Slurm Wrapper for General Unlearning Audit Experiments
+# Slurm wrapper: general SNMF unlearning audit
 # ==============================================================================
 #
-# Default behavior (Gemma 0.3B Arithmetic):
+# Default (Gemma-2-2B RMU rel_delta / ancient_rome):
 #   sbatch scripts/audit/run_general_unlearning_audit.sh
 #
-# Overridden behavior (Gemma-2-2B WMDP Bio RMU):
-#   AUDIT_CONFIG="configs/audit/gemma22b_wmdp_bio_rmu_general_audit.yaml" \
-#   sbatch --job-name=audit_g22b_wmdp_bio_rmu \
-#          --output=logs/general_unlearning_audit_g22b_wmdp_%j.out \
-#          --error=logs/general_unlearning_audit_g22b_wmdp_%j.err \
-#          scripts/audit/run_general_unlearning_audit.sh
+# Override config:
+#   AUDIT_CONFIG="configs/audit/gemma2_2b_it/pisces/rel_delta/golf.yaml" \
+#     sbatch scripts/audit/run_general_unlearning_audit.sh
+#
+# Override config + extra Python flags:
+#   AUDIT_CONFIG="configs/audit/gemma2_2b_it/rmu/rel_delta/golf.yaml" \
+#     sbatch scripts/audit/run_general_unlearning_audit.sh --skip-judge
+#
+# Optional: custom Slurm log names when overriding:
+#   AUDIT_CONFIG="..." sbatch --job-name=audit_pisces_golf \
+#     --output=logs/audit_pisces_golf_%j.out \
+#     --error=logs/audit_pisces_golf_%j.err \
+#     scripts/audit/run_general_unlearning_audit.sh
 #
 # ==============================================================================
 
-# ------------------------------------------------------------------------------
-# 1. Slurm Resource Allocation (Baseline Configuration: g03b)
-# ------------------------------------------------------------------------------
-#SBATCH --job-name=audit_g03b_arith
-#SBATCH --output=logs/audit_g03b_%j.out
-#SBATCH --error=logs/audit_g03b_%j.err
+#SBATCH --job-name=audit_general
+#SBATCH --output=logs/audit_general_%j.out
+#SBATCH --error=logs/audit_general_%j.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu-morgeva
 #SBATCH --account=gpu-research
@@ -33,27 +37,12 @@
 
 set -euo pipefail
 
-# ------------------------------------------------------------------------------
-# 2. Environment Invariants & Bootstrapping
-# ------------------------------------------------------------------------------
-export REPO_ROOT="${REPO_ROOT:-/home/morg/students/rashkovits/unlearning-detection}"
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# shellcheck source=scripts/audit/audit_runner_env.sh
-source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
+source "${_SCRIPT_DIR}/audit_runner_env.sh"
 
-# ------------------------------------------------------------------------------
-# 3. Configuration Resolution
-# ------------------------------------------------------------------------------
-# Default fallback to g03b SNMF audit config if AUDIT_CONFIG is missing (distinct
-# output_dir from gemma03b_arithmetic_baseline_audit.yaml used by run_baseline_unlearning_audit.sh).
-DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma03b_arithmetic_general_audit.yaml"
+DEFAULT_CONFIG="${REPO_ROOT}/configs/audit/gemma2_2b_it/rmu/rel_delta/ancient_rome.yaml"
 CONFIG="${AUDIT_CONFIG:-$DEFAULT_CONFIG}"
 
-echo "[audit] Infrastructure initialization complete."
-echo "        -> REPO_ROOT : ${REPO_ROOT}"
-echo "        -> CONFIG    : ${CONFIG}"
-
-# ------------------------------------------------------------------------------
-# 4. Payload Execution
-# ------------------------------------------------------------------------------
+echo "[audit] CONFIG: ${CONFIG}"
 exec python -u experiments/audit/general_unlearning_audit.py --config "$CONFIG" "$@"

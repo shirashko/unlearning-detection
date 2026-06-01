@@ -10,8 +10,9 @@ from experiments.audit.core.projection import (
 from experiments.audit.core.rankers import (
     REL_DELTA_EPS,
     BaseFeatureRanker,
-    MeanPeakUnlearningMetrics,
+    LatentUnlearningMetrics,
     RankerFactory,
+    compute_latent_unlearning_metrics,
     compute_mean_peak_metrics,
     global_top_features,
 )
@@ -19,10 +20,11 @@ from experiments.audit.core.rankers import (
 __all__ = [
     "BaseFeatureRanker",
     "LayerAuditor",
-    "MeanPeakUnlearningMetrics",
+    "LatentUnlearningMetrics",
     "RankerFactory",
     "REL_DELTA_EPS",
     "SubspaceProjector",
+    "compute_latent_unlearning_metrics",
     "compute_mean_peak_metrics",
     "frob_relative_residual",
     "global_top_features",

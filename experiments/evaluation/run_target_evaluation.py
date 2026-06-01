@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -35,7 +36,9 @@ except ImportError:
         return False
 
 from data_utils.concept_dataset import SupervisedConceptDataset
+from experiments.audit.unlearning_audit_reporter import parse_judge_json
 from experiments.evaluation.unlearning_target_evaluator import (
+    TEXT_SAMPLE_PLACEHOLDER,
     UnlearningTargetEvaluator,
 )
 from llm_utils.gemini_client import GeminiClient
@@ -194,6 +197,62 @@ def load_forget_retain_corpora(
     )
 
 
+def _verdict_from_payload(payload: Any, *, source_path: Path) -> Dict[str, Any]:
+    if source_path.name == "audit_summary.json" and isinstance(payload, dict):
+        verdict = payload.get("judge_verdict") or {}
+        if payload.get("judge_error"):
+            logger.warning("Audit summary records judge_error: %s", payload["judge_error"])
+        return verdict if isinstance(verdict, dict) else {}
+    if isinstance(payload, dict):
+        return payload
+    raise ValueError(f"Unexpected judge payload type in {source_path}.")
+
+
+def _extract_concept_from_raw_text(text: str) -> Optional[Dict[str, Any]]:
+    match = re.search(
+        r'"likely_unlearned_concept"\s*:\s*"((?:\\.|[^"\\])*)"',
+        text,
+        flags=re.DOTALL,
+    )
+    if not match:
+        return None
+    concept = json.loads(f'"{match.group(1)}"')
+    if not str(concept).strip():
+        return None
+    recovered: Dict[str, Any] = {"likely_unlearned_concept": str(concept).strip()}
+    conf = re.search(r'"unlearning_confidence"\s*:\s*(\d+)', text)
+    if conf:
+        recovered["unlearning_confidence"] = int(conf.group(1))
+    return recovered
+
+
+def _recover_parsed_verdict(verdict: Dict[str, Any], audit_dir: Optional[Path]) -> Dict[str, Any]:
+    if verdict.get("likely_unlearned_concept") and not verdict.get("_parse_error"):
+        return verdict
+
+    raw_text = verdict.get("_raw_text")
+    if isinstance(raw_text, str) and raw_text.strip():
+        recovered = parse_judge_json(raw_text)
+        if recovered.get("likely_unlearned_concept") and not recovered.get("_parse_error"):
+            return recovered
+        partial = _extract_concept_from_raw_text(raw_text)
+        if partial:
+            return partial
+
+    if audit_dir is not None:
+        raw_path = audit_dir / "judge_response_raw.txt"
+        if raw_path.is_file():
+            raw = raw_path.read_text(encoding="utf-8")
+            recovered = parse_judge_json(raw)
+            if recovered.get("likely_unlearned_concept") and not recovered.get("_parse_error"):
+                return recovered
+            partial = _extract_concept_from_raw_text(raw)
+            if partial:
+                return partial
+
+    return verdict
+
+
 def resolve_judge_hypothesis(
     *,
     audit_dir: Optional[Path],
@@ -206,29 +265,29 @@ def resolve_judge_hypothesis(
 
     verdict_path = judge_response
     if verdict_path is None and audit_dir is not None:
-        candidate = audit_dir / "judge_response.json"
-        if candidate.is_file():
-            verdict_path = candidate
-        else:
-            summary = audit_dir / "audit_summary.json"
-            if summary.is_file():
-                verdict_path = summary
+        for candidate in (
+            audit_dir / "judge_response.json",
+            audit_dir / "judge_response_raw.txt",
+            audit_dir / "audit_summary.json",
+        ):
+            if candidate.is_file():
+                verdict_path = candidate
+                break
 
     if verdict_path is None or not verdict_path.is_file():
         raise FileNotFoundError(
             "No hypothesis provided. Pass --hypothesis, --judge-response, or "
-            "--audit-dir containing judge_response.json or audit_summary.json."
+            "--audit-dir containing judge_response.json, judge_response_raw.txt, "
+            "or audit_summary.json."
         )
 
-    payload = _load_json(verdict_path)
-    if verdict_path.name == "audit_summary.json" and isinstance(payload, dict):
-        verdict = payload.get("judge_verdict") or {}
-        if payload.get("judge_error"):
-            logger.warning("Audit summary records judge_error: %s", payload["judge_error"])
-    elif isinstance(payload, dict):
-        verdict = payload
+    payload = _load_json(verdict_path) if verdict_path.suffix == ".json" else None
+    if payload is None:
+        verdict = parse_judge_json(verdict_path.read_text(encoding="utf-8"))
     else:
-        raise ValueError(f"Unexpected judge payload type in {verdict_path}.")
+        verdict = _verdict_from_payload(payload, source_path=verdict_path)
+
+    verdict = _recover_parsed_verdict(verdict, audit_dir)
 
     if verdict.get("_parse_error"):
         raise ValueError(
@@ -390,11 +449,15 @@ def run_evaluation(args: argparse.Namespace) -> Dict[str, Any]:
         max_samples_per_set=args.max_samples_per_set,
     )
 
+    prompt_template = metrics.pop("_classification_prompt_template", None)
+
     report: Dict[str, Any] = {
         "meta": {
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "audit_dir": str(audit_dir) if audit_dir else None,
             "judge_response": str(judge_response) if judge_response else None,
+            "classification_prompt_template": prompt_template,
+            "text_sample_placeholder": TEXT_SAMPLE_PLACEHOLDER,
             "eval_model": args.eval_model,
             "eval_temperature": args.eval_temperature,
             "eval_max_output_tokens": args.eval_max_output_tokens,
