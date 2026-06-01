@@ -345,8 +345,7 @@ class UnlearningTargetEvaluator:
 
         return {
             "hypothesis": hypothesis,
-            "classification_prompt_template": prompt_template,
-            "text_sample_placeholder": TEXT_SAMPLE_PLACEHOLDER,
+            "_classification_prompt_template": prompt_template,
             "balanced_accuracy": balanced_acc,
             "auc_roc": auc_roc,
             "n_samples_evaluated": len(test_texts),

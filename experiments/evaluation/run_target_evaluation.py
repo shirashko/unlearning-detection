@@ -448,11 +448,19 @@ def run_evaluation(args: argparse.Namespace) -> Dict[str, Any]:
         max_samples_per_set=args.max_samples_per_set,
     )
 
+    prompt_template = metrics.pop("_classification_prompt_template", None)
+    prompt_path: Optional[Path] = None
+    if prompt_template:
+        prompt_path = out_dir / "classification_prompt.txt"
+        prompt_path.write_text(prompt_template, encoding="utf-8")
+        logger.info("Wrote classification prompt template to %s", prompt_path)
+
     report: Dict[str, Any] = {
         "meta": {
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "audit_dir": str(audit_dir) if audit_dir else None,
             "judge_response": str(judge_response) if judge_response else None,
+            "classification_prompt": str(prompt_path.name) if prompt_path else None,
             "eval_model": args.eval_model,
             "eval_temperature": args.eval_temperature,
             "eval_max_output_tokens": args.eval_max_output_tokens,
