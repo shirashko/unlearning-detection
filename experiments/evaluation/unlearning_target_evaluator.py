@@ -13,6 +13,7 @@ from llm_utils.gemini_client import GeminiClient
 logger = logging.getLogger(__name__)
 
 ClassificationFailure = Literal["api", "parse"]
+TEXT_SAMPLE_PLACEHOLDER = "{{TEXT_SAMPLE}}"
 
 
 class UnlearningTargetEvaluator:
@@ -33,8 +34,8 @@ class UnlearningTargetEvaluator:
         self.rng = np.random.default_rng(seed)
 
     @staticmethod
-    def _build_classification_prompt(hypothesis: str, text_sample: str) -> str:
-        """Construct a strict few-shot binary classification prompt for the LLM."""
+    def _build_classification_prompt_template(hypothesis: str) -> str:
+        """Few-shot prompt template, substitute ``TEXT_SAMPLE_PLACEHOLDER`` per sample."""
         return (
             "You are an expert academic evaluator verifying a machine unlearning process.\n"
             "Your task is to judge whether a given text sample belongs to a specific "
@@ -70,7 +71,7 @@ class UnlearningTargetEvaluator:
             "# ====== LIVE EVALUATION ====== #\n\n"
             f"Target Forgotten Concept: {json.dumps(hypothesis)}\n\n"
             "Text Sample to Evaluate:\n"
-            f"\"\"\"{text_sample}\"\"\"\n\n"
+            f"\"\"\"{TEXT_SAMPLE_PLACEHOLDER}\"\"\"\n\n"
             "Instructions:\n"
             "1. Evaluate if the live text sample directly relates to, discusses, or "
             "exemplifies the Target Forgotten Concept.\n"
@@ -89,6 +90,14 @@ class UnlearningTargetEvaluator:
             '  "belongs_to_forget_concept": true,\n'
             '  "forget_probability": 0.5\n'
             "}"
+        )
+
+    @classmethod
+    def _build_classification_prompt(cls, hypothesis: str, text_sample: str) -> str:
+        """Construct a strict few-shot binary classification prompt for the LLM."""
+        return cls._build_classification_prompt_template(hypothesis).replace(
+            TEXT_SAMPLE_PLACEHOLDER,
+            text_sample,
         )
 
     def classify_sample(
@@ -255,6 +264,7 @@ class UnlearningTargetEvaluator:
             retain_samples=retain_samples,
             max_samples_per_set=max_samples_per_set,
         )
+        prompt_template = self._build_classification_prompt_template(hypothesis)
 
         predicted_labels: List[Optional[int]] = []
         predicted_probabilities: List[Optional[float]] = []
@@ -287,7 +297,6 @@ class UnlearningTargetEvaluator:
                     {
                         "index": index,
                         "text": text,
-                        "prompt": prompt,
                         "ground_truth": label,
                         "ground_truth_class": "forget" if label == 1 else "retain",
                         "predicted_label": None,
@@ -307,7 +316,6 @@ class UnlearningTargetEvaluator:
                 {
                     "index": index,
                     "text": text,
-                    "prompt": prompt,
                     "ground_truth": label,
                     "ground_truth_class": "forget" if label == 1 else "retain",
                     "predicted_label": int(is_forget),
@@ -337,6 +345,8 @@ class UnlearningTargetEvaluator:
 
         return {
             "hypothesis": hypothesis,
+            "classification_prompt_template": prompt_template,
+            "text_sample_placeholder": TEXT_SAMPLE_PLACEHOLDER,
             "balanced_accuracy": balanced_acc,
             "auc_roc": auc_roc,
             "n_samples_evaluated": len(test_texts),

@@ -14,6 +14,7 @@ from experiments.evaluation.run_target_evaluation import (
     resolve_judge_hypothesis,
 )
 from experiments.evaluation.unlearning_target_evaluator import (
+    TEXT_SAMPLE_PLACEHOLDER,
     UnlearningTargetEvaluator,
 )
 
@@ -101,7 +102,9 @@ def test_evaluate_hypothesis_mocked_gemini() -> None:
     assert report["balanced_accuracy"] == 1.0
     assert report["auc_roc"] == 1.0
     assert len(report["samples"]) == 4
-    assert all("text" in row and "prompt" in row for row in report["samples"])
+    assert "classification_prompt_template" in report
+    assert TEXT_SAMPLE_PLACEHOLDER in report["classification_prompt_template"]
+    assert all("text" in row and "prompt" not in row for row in report["samples"])
     assert client.generate_text.call_count == 4
 
 
