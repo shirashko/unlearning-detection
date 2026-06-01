@@ -124,7 +124,7 @@ Gemma:
     Culture of Greece:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -160,7 +160,7 @@ Gemma:
     Cannabis:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -196,7 +196,7 @@ Gemma:
     Baseball:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -232,7 +232,7 @@ Gemma:
     Gambling:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -269,7 +269,7 @@ Gemma:
     Culture of Greece:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -306,7 +306,7 @@ Gemma:
     Cannabis:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -343,7 +343,7 @@ Gemma:
     Baseball:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -380,7 +380,7 @@ Gemma:
     Gambling:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -709,7 +709,7 @@ Llama:
     Culture of Greece:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -745,7 +745,7 @@ Llama:
     Cannabis:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -781,7 +781,7 @@ Llama:
     Baseball:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -817,7 +817,7 @@ Llama:
     Gambling:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -854,7 +854,7 @@ Llama:
     Culture of Greece:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -891,7 +891,7 @@ Llama:
     Cannabis:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -928,7 +928,7 @@ Llama:
     Baseball:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -965,7 +965,7 @@ Llama:
     Gambling:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0

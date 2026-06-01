@@ -94,7 +94,7 @@ Gemma:
     Golf:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -130,7 +130,7 @@ Gemma:
     Ancient Rome:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -166,7 +166,7 @@ Gemma:
     Uranium:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -203,7 +203,7 @@ Gemma:
     Golf:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -240,7 +240,7 @@ Gemma:
     Ancient Rome:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -277,7 +277,7 @@ Gemma:
     Uranium:
       hyperparameters:
         rank: 100
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -534,7 +534,7 @@ Llama:
     Golf:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -570,7 +570,7 @@ Llama:
     Ancient Rome:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -606,7 +606,7 @@ Llama:
     Uranium:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -643,7 +643,7 @@ Llama:
     Golf:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -680,7 +680,7 @@ Llama:
     Ancient Rome:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
@@ -717,7 +717,7 @@ Llama:
     Uranium:
       hyperparameters:
         rank: 200
-        n_sentences: 200
+        n_sentences: 300
         seed: 42
         embed_step_enabled: false
         delta_embed: 0.0
