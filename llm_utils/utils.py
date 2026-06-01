@@ -113,6 +113,26 @@ def sorted_numeric_layer_dirs(results_dir: Path) -> List[Tuple[int, Path]]:
     return found
 
 
+def format_audited_layers(layers: Sequence[int]) -> str:
+    """Format layer indices for display, collapse consecutive layers (e.g. 0-25,1,3-5,10-12)."""
+    if not layers:
+        return "[]"
+    uniq = sorted({int(x) for x in layers})
+    if len(uniq) == 1:
+        return str(uniq[0])
+
+    parts: List[str] = []
+    start = prev = uniq[0]
+    for layer in uniq[1:]:
+        if layer == prev + 1:
+            prev = layer
+            continue
+        parts.append(str(start) if start == prev else f"{start}-{prev}")
+        start = prev = layer
+    parts.append(str(start) if start == prev else f"{start}-{prev}")
+    return ",".join(parts)
+
+
 def resolve_absolute_path(path_str: str, cwd: Optional[Path] = None) -> Path:
     """Resolve a path string to an absolute canonical path."""
     p = Path(path_str)
