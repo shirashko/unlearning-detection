@@ -43,11 +43,12 @@ from experiments.audit.config import (
 )
 from experiments.audit.context_windows import _sample_id_to_spans
 from experiments.audit.core.layer_auditor import LayerAuditor
+from experiments.audit.core.metric_format import round_audit_residual_norm
 from experiments.audit.core.projection import SubspaceProjector, per_prompt_peaks
 from experiments.audit.core.rankers import (
     REL_DELTA_EPS,
     RankerFactory,
-    compute_mean_peak_metrics,
+    compute_latent_unlearning_metrics,
     global_top_features,
 )
 from experiments.audit.general_unlearning_audit import (
@@ -55,13 +56,13 @@ from experiments.audit.general_unlearning_audit import (
     _build_per_layer_metrics_rows,
     _collect_activations,
     _collect_aligned_dual_model_activations,
-    _invoke_gemini_audit_judge,
     _is_vocab_logit_lens_enabled,
     _load_prompts,
     _resolve_context_rare_word_top_n,
     _emit_audit_run_summary_logs,
     setup_logger,
 )
+from experiments.audit.judge_runner import invoke_gemini_audit_judge
 from experiments.audit.unlearning_audit_reporter import UnlearningAuditReporter
 from experiments.audit.logit_lens import LogitLens
 from experiments.audit.summary_report import build_audit_summary_report
@@ -95,7 +96,7 @@ def validate_baseline_audit_config(
     if missing:
         raise ValueError("Missing required config fields: " + ", ".join(missing))
 
-    if cfg.snmf.rank_by not in ("rel_delta", "abs_rel_delta"):
+    if cfg.snmf.rank_by not in RankerFactory._rankers:
         raise ValueError(f"Invalid rank_by={cfg.snmf.rank_by!r}")
     if cfg.snmf.mode != "mlp_intermediate":
         raise ValueError(
@@ -302,7 +303,7 @@ def _build_cross_layer_logit_lens_aggregate_raw(
         "n_layers_spanned": int(len(actual_layers)),
         "delta_weighted": bool(cfg.lens.lens_delta_weighted),
         "rank_by": cfg.snmf.rank_by,
-        "residual_norm": float(r_global.norm().item()),
+        "residual_norm": round_audit_residual_norm(float(r_global.norm().item())),
         "tokens": agg_tokens,
     }
     logger.info(
@@ -348,7 +349,7 @@ def _audit_one_layer_raw(
 
     mean_base = Y_base_max.mean(axis=0)
     mean_cand = Y_cand_max.mean(axis=0)
-    m = compute_mean_peak_metrics(mean_base, mean_cand, eps=REL_DELTA_EPS)
+    m = compute_latent_unlearning_metrics(Y_base_max, Y_cand_max, eps=REL_DELTA_EPS)
     ranker = RankerFactory.get_ranker(cfg.snmf.rank_by)
     scores = ranker.ranking_vector(m)
 
@@ -412,7 +413,7 @@ def _audit_one_layer_raw(
         top_vocab_sum = {
             "n_features_summed": len(idx_list),
             "delta_weighted": bool(aggregate_delta_weighted),
-            "residual_norm": float(agg_residual.norm().item()),
+            "residual_norm": round_audit_residual_norm(float(agg_residual.norm().item())),
             "tokens": agg_tokens,
         }
 
@@ -425,6 +426,7 @@ def _audit_one_layer_raw(
             context_window=context_window,
         )
         rec = dict(per_latent[int(i)])
+        rec["latent_idx"] = int(i)
         rec["top_contexts"] = ctxs
         if int(i) in top_vocab_per_neuron:
             rec["top_vocab_base"] = top_vocab_per_neuron[int(i)]
@@ -702,7 +704,7 @@ def run_baseline_audit(
         logger.info("--skip-judge set; not calling the LLM judge.")
         judge_error = "skipped (--skip-judge)"
     else:
-        judge_verdict, judge_error = _invoke_gemini_audit_judge(
+        judge_verdict, judge_error = invoke_gemini_audit_judge(
             cfg.judge, judge_prompt, out_dir, logger,
         )
 

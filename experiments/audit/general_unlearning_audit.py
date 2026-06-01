@@ -21,14 +21,13 @@ from dotenv import load_dotenv
 
 from experiments.audit.config import (
     AuditConfig,
-    JudgeConfig,
     audit_config_to_nested_dict,
     parse_args_to_config,
 )
 from experiments.audit.context_windows import _sample_id_to_spans
-from experiments.audit.unlearning_audit_reporter import UnlearningAuditReporter
-from llm_utils.gemini_client import GeminiClient
+from experiments.audit.judge_runner import invoke_gemini_audit_judge
 from experiments.audit.core.layer_auditor import LayerAuditor
+from experiments.audit.core.metric_format import round_audit_residual_norm
 from experiments.audit.core.projection import SubspaceProjector
 from experiments.audit.core.rankers import global_top_features
 from experiments.audit.summary_report import build_audit_summary_report
@@ -41,7 +40,7 @@ from experiments.audit.text_processing import (
 )
 from llm_utils.local_activation_generator import LocalActivationGenerator
 from llm_utils.model_utils import load_local_model
-from llm_utils.utils import resolve_device, set_seed, sorted_numeric_layer_dirs
+from llm_utils.utils import resolve_device, set_seed, sorted_numeric_layer_dirs, format_audited_layers
 
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
@@ -242,7 +241,7 @@ def _audit_one_layer(
         top_vocab_sum = {
             "n_features_summed": len(idx_list),
             "delta_weighted": bool(aggregate_delta_weighted),
-            "residual_norm": float(agg_residual.norm().item()),
+            "residual_norm": round_audit_residual_norm(float(agg_residual.norm().item())),
             "tokens": agg_tokens,
         }
 
@@ -256,6 +255,7 @@ def _audit_one_layer(
             context_window=context_window,
         )
         rec = dict(per_latent[int(i)])
+        rec["latent_idx"] = int(i)
         rec["top_contexts"] = ctxs
         if int(i) in top_vocab_per_latent:
             rec["top_vocab_base"] = top_vocab_per_latent[int(i)]
@@ -359,7 +359,7 @@ def _resolve_audit_layer_plan(
     if not layer_pairs:
         raise RuntimeError(f"No layer_* dirs to audit under {snmf_dir}")
     layers = [i for i, _ in layer_pairs]
-    logger.info(f"Auditing layers: {layers}")
+    logger.info(f"Auditing layers: {format_audited_layers(layers)}")
     return snmf_dir, layer_pairs, layers
 
 
@@ -553,7 +553,7 @@ def _build_cross_layer_logit_lens_aggregate(
         "n_layers_spanned": int(len(actual_layers_summed)),
         "delta_weighted": bool(cfg.lens.lens_delta_weighted),
         "rank_by": cfg.snmf.rank_by,
-        "residual_norm": float(r_global.norm().item()),
+        "residual_norm": round_audit_residual_norm(float(r_global.norm().item())),
         "tokens": agg_tokens,
     }
     logger.info(
@@ -617,66 +617,6 @@ def _assemble_judge_prompt_context(
         per_layer_rare_word_blocks,
         global_rare_word_block,
     )
-
-
-def _invoke_gemini_audit_judge(
-    judge_cfg: JudgeConfig,
-    judge_prompt: str,
-    out_dir: Path,
-    logger: logging.Logger,
-) -> Tuple[Dict[str, Any], Optional[str]]:
-    """
-    Evaluate the packaged audit prompt with the configured Gemini judge.
-
-    Do not call when ``judge_cfg.skip_judge`` is true.
-
-    Returns ``(judge_verdict, judge_error)``.
-
-    - judge_verdict is {} only when the client cannot be constructed
-      (e.g. missing API key).
-    - On HTTP/empty-response or JSON parse failure, judge_verdict may be a
-      non-empty dict with _parse_error (and optionally _raw_text).
-    - On success, judge_verdict is the parsed verdict JSON and
-      judge_error is None.
-    """
-    judge_verdict: Dict[str, Any] = {}
-    judge_error: Optional[str] = None
-
-    try:
-        client = GeminiClient(
-            model=judge_cfg.judge_model,
-            temperature=judge_cfg.judge_temperature,
-            max_output_tokens=judge_cfg.judge_max_output_tokens,
-            api_key_env=judge_cfg.judge_api_key_env,
-        )
-        reporter = UnlearningAuditReporter(client)
-    except ValueError as e:
-        judge_error = str(e)
-        logger.warning(f"Judge call failed: {judge_error}")
-        (out_dir / "judge_response_raw.txt").write_text("", encoding="utf-8")
-        return judge_verdict, judge_error
-
-    logger.info(f"Calling judge model: {client.model}")
-
-    judge_verdict, raw_text, judge_error, finish_reason = reporter.run_prompt(
-        judge_prompt,
-    )
-    (out_dir / "judge_response_raw.txt").write_text(raw_text or "", encoding="utf-8")
-    if finish_reason:
-        lvl = logger.warning if finish_reason == "MAX_TOKENS" else logger.info
-        lvl("Judge finished with reason: %s", finish_reason)
-    if judge_error:
-        logger.warning(f"Judge call failed: {judge_error}")
-    elif judge_verdict.get("_parse_error"):
-        judge_error = str(judge_verdict.get("_parse_error", "parse error"))
-        logger.warning(f"Judge parse failed: {judge_error}")
-    else:
-        logger.info(
-            "Judge verdict: confidence=%s | concept=%r",
-            judge_verdict.get("unlearning_confidence"),
-            judge_verdict.get("likely_unlearned_concept"),
-        )
-    return judge_verdict, judge_error
 
 
 def _emit_audit_run_summary_logs(
@@ -824,7 +764,7 @@ def run_audit(cfg: AuditConfig) -> None:
         logger.info("--skip-judge set; not calling the LLM judge.")
         judge_error = "skipped (--skip-judge)"
     else:
-        judge_verdict, judge_error = _invoke_gemini_audit_judge(
+        judge_verdict, judge_error = invoke_gemini_audit_judge(
             cfg.judge, judge_prompt, out_dir, logger,
         )
 

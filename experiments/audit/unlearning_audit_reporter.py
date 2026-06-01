@@ -10,6 +10,7 @@ from experiments.audit.judge_constants import (
     JUDGE_SYSTEM_PROMPT,
 )
 from llm_utils.gemini_client import GeminiClient
+from llm_utils.utils import format_audited_layers
 
 
 class UnlearningAuditReporter:
@@ -40,17 +41,18 @@ class UnlearningAuditReporter:
     def _append_layer_summary(parts: List[str], summary: List[Dict[str, Any]]) -> None:
         parts.append("--- Per-layer reconstruction & delta summary ---")
         parts.append(
-            "(residual = || A - Z Y ||_F^2 / || A ||_F^2 ; "
-            "rel_delta and rel_delta_max/mean summarize per-latent fractional change "
-            "in mean peak coefficient, (E[Y_base]-E[Y_cand])/(E[Y_base]+1e-9).)"
+            "(residual = || A - Z Y ||_F^2 / || A ||_F^2 ; rel_delta = per-latent "
+            "fractional change in mean peak coefficient, "
+            "(E[Y_base]-E[Y_cand])/(E[Y_base]+1e-9).)"
         )
         for row in summary:
             parts.append(
-                f"  L{row['layer']:02d}  residual_base={row['residual_base']:.4f}  "
-                f"residual_candidate={row['residual_candidate']:.4f}  "
-                f"residual_delta={row['residual_delta']:+.4f}  "
-                f"rel_delta_max={row['rel_delta_max']:+.4f}  "
-                f"rel_delta_mean={row['rel_delta_mean']:+.4f}"
+                f"  L{row['layer']:02d} | "
+                f"residual (base / cand): {row['residual_base']:.4f} / "
+                f"{row['residual_candidate']:.4f} | "
+                f"residual Δ: {row['residual_delta']:+.4f} | "
+                f"rel_delta (max / min): {row['rel_delta_max']:+.4f} / "
+                f"{row['rel_delta_min']:+.4f}"
             )
         parts.append("")
 
@@ -63,11 +65,18 @@ class UnlearningAuditReporter:
         )
         fmt_rare = UnlearningAuditReporter.format_rare_words
         for k, rec in enumerate(global_top, start=1):
+            rank_score = float(rec.get(rank_by, 0.0))
+            rank_fmt = f"{rank_score:+.4f}" if rank_by == "rel_delta" else f"{rank_score:.4f}"
             parts.append(
                 f"[{k}] layer L{rec['layer']}, latent {rec['latent_idx']} | "
-                f"rel_delta={rec.get('rel_delta', 0.0):+.4f}  "
-                f"abs_rel_delta={rec.get('abs_rel_delta', 0.0):.4f} | "
-                f"mean_base={rec['mean_Y_base']:.4f}  "
+                f"{rank_by}={rank_fmt} | "
+                f"rel_delta={rec.get('rel_delta', 0.0):+.4f} | "
+                f"peak_profile_l2={rec.get('peak_profile_l2', 0.0):.4f} | "
+                f"normalized_peak_profile_l2="
+                f"{rec.get('normalized_peak_profile_l2', 0.0):.4f} | "
+                f"peak_profile_cosine_dist="
+                f"{rec.get('peak_profile_cosine_dist', 0.0):.4f} | "
+                f"mean_base={rec['mean_Y_base']:.4f} / "
                 f"mean_candidate={rec['mean_Y_candidate']:.4f}"
             )
 
@@ -157,18 +166,29 @@ class UnlearningAuditReporter:
             return
         parts.append(
             "--- Per-layer AGGREGATE rare-context words (rare/topical vocabulary "
-            "recurring across top-decreased features) ---\n"
+            "recurring across top-decreased features) ---"
         )
-        fmt_rare = UnlearningAuditReporter.format_rare_words
 
+        first = layers_rare[0]
+        n_features = first.get("n_features_pooled")
+        zipf_cutoff = float(first.get("zipf_cutoff", 0.0))
+        n_contexts_values = [row.get("n_contexts") for row in layers_rare]
+        contexts_vary = len(set(n_contexts_values)) > 1
+
+        meta = [f"n_features={n_features}", f"zipf_cutoff={zipf_cutoff:.2f}"]
+        if not contexts_vary:
+            meta.insert(1, f"n_contexts={n_contexts_values[0]}")
+        parts.append(f"  ({', '.join(meta)})")
+        parts.append("")
+
+        fmt_rare = UnlearningAuditReporter.format_rare_words
         for row in layers_rare:
-            words_str = fmt_rare(row.get("words") or [])
-            parts.append(
-                f"  L{int(row['layer']):02d}  (n_features={row.get('n_features_pooled')}, "
-                f"n_contexts={row.get('n_contexts')}, "
-                f"zipf_cutoff={float(row.get('zipf_cutoff', 0.0)):.2f}):"
-            )
-            parts.append("      " + (words_str or "(no rare words above cutoff)"))
+            layer_line = f"  L{int(row['layer']):02d}"
+            if contexts_vary:
+                layer_line += f" (n_contexts={row.get('n_contexts')})"
+            layer_line += ":"
+            parts.append(layer_line)
+            parts.append("      " + (fmt_rare(row.get("words") or []) or "(no rare words above cutoff)"))
         parts.append("")
 
     @staticmethod
@@ -212,7 +232,7 @@ class UnlearningAuditReporter:
             JUDGE_SYSTEM_PROMPT,
             "=" * 72, "AUDIT REPORT", "=" * 72,
             f"n_audit_prompts:      {n_prompts}",
-            f"audited_layers:       {layers}",
+            f"audited_layers:       {format_audited_layers(layers)}",
             f"rank_by:              {rank_by}\n",
         ]
 
