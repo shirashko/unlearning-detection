@@ -17,8 +17,10 @@
 set -euo pipefail
 
 _SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${REPO_ROOT:-${SLURM_SUBMIT_DIR:-$(cd "${_SCRIPT_DIR}/../.." && pwd)}}"
+cd "$REPO_ROOT"
 
-source "${_SCRIPT_DIR}/../audit/audit_runner_env.sh"
+source "${REPO_ROOT}/scripts/audit/audit_runner_env.sh"
 
 
 MODEL_PATH="${MODEL_PATH:-${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b-it}}"
