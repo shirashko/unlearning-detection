@@ -1,18 +1,11 @@
-# Example configuration for general_unlearning_audit.py
-#
-# Run:
-#   python experiments/audit/general_unlearning_audit.py --config configs/audit/example_general_audit.yaml
-#
-# CLI flags override individual fields after the YAML is loaded.
+# Default Gemma-2-2B weights: Hugging Face repo id (loaded from HF_HUB_CACHE, see audit_runner_env.sh).
+base_model_path: "${DEFAULT_GEMMA_2_2B_MODEL}"
+candidate_model_path: "/home/morg/students/rashkovits/SNMF-Erasure/unlearned_checkpoints/crisp/google_gemma-2-2b-it/Golf"
+snmf_dir: "./outputs/gemma_2_2b_it/rank350/data1/snmf"
+data_path: "./data/general_data_part1.json"
+output_dir: "./outputs/gemma_2_2b_it/rank350/data1/crisp/normalized_peak_profile_l2/golf"
 
-base_model_path: "/path/to/base"
-candidate_model_path: "/path/to/candidate"
-snmf_dir: "/path/to/snmf_outputs"
-data_path: "/path/to/prompts.json"
-output_dir: "/path/to/audit_output"
-
-layers: "10-18"
-# layers: [10, 11, 12]
+layers: "0-25"
 
 runtime:
   max_prompts: 400
@@ -25,7 +18,7 @@ snmf:
   ridge_lambda: 1.0e-4
   top_k_global: 20
   top_k_per_layer: 15
-  rank_by: rel_delta
+  rank_by: normalized_peak_profile_l2
   contexts_per_feature: 8
   context_window: 15
 
