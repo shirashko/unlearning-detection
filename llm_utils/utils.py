@@ -114,7 +114,7 @@ def sorted_numeric_layer_dirs(results_dir: Path) -> List[Tuple[int, Path]]:
 
 
 def format_audited_layers(layers: Sequence[int]) -> str:
-    """Format layer indices for display, collapse consecutive layers (e.g. 0-25, 1,3-5,10-12)."""
+    """Format layer indices for display, collapse consecutive layers (e.g. 0-25,1,3-5,10-12)."""
     if not layers:
         return "[]"
     uniq = sorted({int(x) for x in layers})
