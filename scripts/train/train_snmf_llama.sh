@@ -10,7 +10,7 @@
 #SBATCH --constraint=h100
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=80G
+#SBATCH --mem=128G
 #SBATCH --mail-user=rashkovits@mail.tau.ac.il
 #SBATCH --mail-type=BEGIN,END,FAIL
 
@@ -28,7 +28,7 @@ LAYERS="${LAYERS:-0-31}"  # cover all layers
 RANK="${RANK:-350}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 SNMF_MODE="${SNMF_MODE:-mlp_intermediate}"
-SNMF_INIT="${SNMF_INIT:-svd}"
+SNMF_INIT="${SNMF_INIT:-random}"
 DEVICE="${DEVICE:-cuda}"
 SPARSITY="${SPARSITY:-0.01}"
 MAX_ITER="${MAX_ITER:-3000}"
