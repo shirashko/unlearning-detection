@@ -52,10 +52,12 @@ fi
 # 3. Cache Topologies & Runtime Variables
 # ------------------------------------------------------------------------------
 # Model weights: point Hugging Face Hub cache at the shared morg tree so repo ids
-# like google/gemma-2-2b resolve from disk (no snapshot paths in YAML).
+# like google/gemma-2-2b-it or meta-llama/Llama-3.1-8B-Instruct resolve from
+# disk (no snapshot paths in YAML).
 export MORG_DATASET_MODELS_ROOT="${MORG_DATASET_MODELS_ROOT:-/home/morg/dataset/models}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-${MORG_DATASET_MODELS_ROOT}}"
-export DEFAULT_GEMMA_2_2B_MODEL="${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b}"
+export DEFAULT_GEMMA_2_2B_MODEL="${DEFAULT_GEMMA_2_2B_MODEL:-google/gemma-2-2b-it}"
+export DEFAULT_LLAMA_3_1_8B_MODEL="${DEFAULT_LLAMA_3_1_8B_MODEL:-meta-llama/Llama-3.1-8B-Instruct}"
 
 export CACHE_ROOT="${CACHE_ROOT:-${WORKSPACE_ROOT}/hf_cache}"
 export HF_HOME="${HF_HOME:-${CACHE_ROOT}}"
@@ -79,4 +81,6 @@ echo "[+] Execution context fully initialized."
 echo "    -> Workspace : $REPO_ROOT"
 echo "    -> Active Env: ${CONDA_DEFAULT_ENV:-UNRESOLVED}"
 echo "    -> HF hub cache : $HF_HUB_CACHE"
-echo "    -> Gemma-2-2B id : $DEFAULT_GEMMA_2_2B_MODEL"
+echo "    -> Default model ids (override via YAML or env):"
+echo "       DEFAULT_GEMMA_2_2B_MODEL=$DEFAULT_GEMMA_2_2B_MODEL"
+echo "       DEFAULT_LLAMA_3_1_8B_MODEL=$DEFAULT_LLAMA_3_1_8B_MODEL"
